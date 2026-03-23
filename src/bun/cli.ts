@@ -19,6 +19,7 @@ import { YOLO_DIR, runInference } from "./util";
 // `with { type: "file" }` tells Bun to embed the file and gives back a path.
 import modelPtPath from "./model.pt" with { type: "file" };
 import inferPyPath from "./infer.py" with { type: "file" };
+import yoloUtilsPyPath from "./yolo_utils.py" with { type: "file" };
 
 // ── Arg parsing ───────────────────────────────────────────────────────────────
 
@@ -34,13 +35,13 @@ if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
 }
 
 const imagePath = args[0];
-let confidence  = 0.5;
-let logPath     = join(YOLO_DIR, "cli-setup.log");
-let outputPath  = "";
+let confidence = 0.5;
+let logPath = join(YOLO_DIR, "cli-setup.log");
+let outputPath = "";
 
 for (let i = 1; i < args.length; i++) {
-	if ((args[i] === "--conf")        && args[i + 1]) confidence = parseFloat(args[++i]);
-	if ((args[i] === "--log_path")    && args[i + 1]) logPath    = args[++i];
+	if ((args[i] === "--conf") && args[i + 1]) confidence = parseFloat(args[++i]);
+	if ((args[i] === "--log_path") && args[i + 1]) logPath = args[++i];
 	if ((args[i] === "--output_path") && args[i + 1]) outputPath = args[++i];
 }
 
@@ -52,25 +53,28 @@ if (!existsSync(imagePath)) {
 // ── Extract embedded model → ~/.yolostudio/models/ (cached by content hash) ──
 
 const modelBytes = await Bun.file(modelPtPath).bytes();
-const modelHash  = createHash("sha1").update(modelBytes.slice(0, 4096)).digest("hex").slice(0, 8);
-const modelsDir  = join(YOLO_DIR, "models");
+const modelHash = createHash("sha1").update(modelBytes.slice(0, 4096)).digest("hex").slice(0, 8);
+const modelsDir = join(YOLO_DIR, "models");
 await mkdir(modelsDir, { recursive: true });
-const modelPath  = join(modelsDir, `model_${modelHash}.pt`);
+const modelPath = join(modelsDir, `model_${modelHash}.pt`);
 if (!existsSync(modelPath)) {
 	process.stdout.write("Extracting model... ");
 	await writeFile(modelPath, modelBytes);
 	console.log("done");
 }
 
-// ── Extract embedded infer.py → temp ─────────────────────────────────────────
+// ── Extract embedded Python helpers → temp ───────────────────────────────────
 
-const inferPyTmpPath = join(tmpdir(), "yolostudio_infer.py");
+const inferDir = join(tmpdir(), "yolostudio-infer");
+await mkdir(inferDir, { recursive: true });
+const inferPyTmpPath = join(inferDir, "infer.py");
 await writeFile(inferPyTmpPath, await Bun.file(inferPyPath).text());
+await writeFile(join(inferDir, "yolo_utils.py"), await Bun.file(yoloUtilsPyPath).text());
 
 // ── Run inference (same util function as the desktop app) ─────────────────────
 
 const { detections, inferenceMs, error } = await runInference(
-	imagePath, modelPath, confidence, inferPyTmpPath, logPath, "cli",
+	imagePath, modelPath, confidence, inferPyTmpPath, logPath, "cli", true,
 );
 
 if (error) {

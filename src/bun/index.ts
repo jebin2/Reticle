@@ -5,8 +5,9 @@ import { randomBytes } from "crypto";
 import { homedir, tmpdir } from "os";
 import {
 	YOLO_DIR, TRAIN_SCRIPT, INFER_SCRIPT, EXPORT_SCRIPT,
+	YOLO_UTILS_SCRIPT,
 	VENV_PYTHON, runningProcesses,
-	prepareEnvironment, runInference,
+	prepareEnvironment, runInference, spawnCollect,
 	pipeLines, checkpointPath,
 } from "./util";
 
@@ -67,7 +68,7 @@ const rpc = defineElectrobunRPC("bun", {
 			},
 
 			loadStudio: async () => {
-				const studioFile = join(homedir(), ".yolostudio", "studio.json");
+				const studioFile = join(YOLO_DIR, "studio.json");
 				try {
 					const file = Bun.file(studioFile);
 					if (await file.exists()) {
@@ -85,9 +86,8 @@ const rpc = defineElectrobunRPC("bun", {
 			},
 
 			saveStudio: async ({ assets, runs }: { assets: unknown[]; runs: unknown[] }) => {
-				const studioDir = join(homedir(), ".yolostudio");
-				await mkdir(studioDir, { recursive: true });
-				await Bun.write(join(studioDir, "studio.json"), JSON.stringify({ assets, runs }, null, 2));
+				await mkdir(YOLO_DIR, { recursive: true });
+				await Bun.write(join(YOLO_DIR, "studio.json"), JSON.stringify({ assets, runs }, null, 2));
 				return {};
 			},
 
@@ -234,16 +234,10 @@ const rpc = defineElectrobunRPC("bun", {
 					const size = (await Bun.file(modelPath).size) ?? 0;
 					return { exportedPath: modelPath, fileSize: size, error: null };
 				}
-				const proc = Bun.spawn([VENV_PYTHON, EXPORT_SCRIPT], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
-				proc.stdin.write(JSON.stringify({ modelPath, format }));
-				proc.stdin.end();
-				const dec = new TextDecoder();
-				let stdout = ""; let stderr = "";
-				await Promise.all([
-					(async () => { for await (const c of proc.stdout) stdout += dec.decode(c); })(),
-					(async () => { for await (const c of proc.stderr) stderr += dec.decode(c); })(),
-				]);
-				await proc.exited;
+				const { stdout, stderr } = await spawnCollect(
+					[VENV_PYTHON, EXPORT_SCRIPT],
+					JSON.stringify({ modelPath, format }),
+				);
 				const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
 				try {
 					const data = JSON.parse(line);
@@ -266,13 +260,14 @@ const rpc = defineElectrobunRPC("bun", {
 				const safeName  = runName.replace(/[^a-zA-Z0-9_-]/g, "_");
 				const outBinary = join(destDir, `${safeName}-detect${process.platform === "win32" ? ".exe" : ""}`);
 
-				// Temp dir: cli.ts + util.ts (its import) + model.pt + infer.py (embedded assets)
+				// Temp dir: cli.ts + util.ts (its import) + embedded Python assets.
 				const buildDir = await mkdtemp(join(tmpdir(), "yolostudio-cli-"));
 				try {
 					await copyFile(CLI_ENTRY,    join(buildDir, "cli.ts"));
 					await copyFile(UTIL_ENTRY,   join(buildDir, "util.ts"));
 					await copyFile(modelPath,    join(buildDir, "model.pt"));
 					await copyFile(INFER_SCRIPT, join(buildDir, "infer.py"));
+					await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
 
 					const proc = Bun.spawn(
 						[process.execPath, "build", "--compile", join(buildDir, "cli.ts"), "--outfile", outBinary],

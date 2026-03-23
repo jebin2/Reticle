@@ -4,5 +4,4 @@ dist/
 .env
 .env.local
 *.log
-# Python runtime tarball — downloaded at build time by scripts/download-python.ts
-src/python/python-runtime.tar.gz
+artifacts/

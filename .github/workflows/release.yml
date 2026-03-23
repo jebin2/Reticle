@@ -16,8 +16,6 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
-      - name: Download standalone Python (linux-x64)
-        run: bun scripts/download-python.ts
       - name: Build app
         run: bunx electrobun build --env=stable
       - name: List artifacts
@@ -48,8 +46,6 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
-      - name: Download standalone Python (darwin-arm64)
-        run: bun scripts/download-python.ts
       - name: Build app
         run: bunx electrobun build --env=stable
       - name: List artifacts
@@ -78,8 +74,6 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
-      - name: Download standalone Python (win32-x64)
-        run: bun scripts/download-python.ts
       - name: Build app
         run: bunx electrobun build --env=stable
       - name: List artifacts

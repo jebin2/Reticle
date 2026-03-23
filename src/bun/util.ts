@@ -17,6 +17,7 @@ export const VENV_READY_MARKER = join(VENV_DIR, ".ready");
 export const TRAIN_SCRIPT      = join(import.meta.dir, "../python/train.py");
 export const INFER_SCRIPT      = join(import.meta.dir, "../python/infer.py");
 export const EXPORT_SCRIPT     = join(import.meta.dir, "../python/export.py");
+export const YOLO_UTILS_SCRIPT = join(import.meta.dir, "../python/yolo_utils.py");
 export const RUNTIME_TARBALL   = join(import.meta.dir, "../python/python-runtime.tar.gz");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -64,9 +65,8 @@ export function checkpointPath(outputPath: string): string {
 }
 
 // ── downloadPythonRuntime ─────────────────────────────────────────────────────
-// Downloads python-build-standalone for the current OS/arch (same source as
-// download-python.ts used at app build time). Used by the standalone CLI on
-// first run when no bundled tarball is present.
+// Downloads python-build-standalone for the current OS/arch. Used when no
+// bundled tarball is present.
 
 const PYTHON_PLATFORM_MAP: Record<string, string> = {
 	"linux-x64":    "x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
@@ -121,8 +121,18 @@ export async function downloadPythonRuntime(
 // Returns VENV_PYTHON so the caller can spawn Python directly.
 
 export async function prepareEnvironment(logPath: string, runId: string): Promise<string> {
-	const log = (text: string) =>
-		appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(() => {});
+	return prepareEnvironmentWithOptions(logPath, runId, false);
+}
+
+export async function prepareEnvironmentWithOptions(
+	logPath: string,
+	runId: string,
+	echoToStderr: boolean,
+): Promise<string> {
+	const log = async (text: string) => {
+		await appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(() => {});
+		if (echoToStderr) process.stderr.write(text + "\n");
+	};
 
 	async function run(cmd: string[], label: string): Promise<void> {
 		const proc = Bun.spawn(cmd, {
@@ -172,6 +182,27 @@ export async function prepareEnvironment(logPath: string, runId: string): Promis
 	return VENV_PYTHON;
 }
 
+// ── spawnCollect ──────────────────────────────────────────────────────────────
+// Spawns a process, writes stdinData, collects stdout + stderr to strings.
+// Used by runInference and exportModel to avoid duplicating the pattern.
+
+export async function spawnCollect(
+	cmd: string[],
+	stdinData: string,
+): Promise<{ stdout: string; stderr: string }> {
+	const proc = Bun.spawn(cmd, { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+	proc.stdin.write(stdinData);
+	proc.stdin.end();
+	const dec = new TextDecoder();
+	let stdout = ""; let stderr = "";
+	await Promise.all([
+		(async () => { for await (const c of proc.stdout) stdout += dec.decode(c); })(),
+		(async () => { for await (const c of proc.stderr) stderr += dec.decode(c); })(),
+	]);
+	await proc.exited;
+	return { stdout, stderr };
+}
+
 // ── runInference ──────────────────────────────────────────────────────────────
 // Calls prepareEnvironment then spawns inferScript with the standard JSON
 // stdin → JSON stdout protocol. Used by both the desktop RPC handler and CLI.
@@ -183,27 +214,19 @@ export async function runInference(
 	inferScript: string,
 	logPath:     string,
 	runId:       string,
+	echoToStderr = false,
 ): Promise<{ detections: Detection[]; inferenceMs: number; error: string | null }> {
 	try {
-		await prepareEnvironment(logPath, runId);
+		await prepareEnvironmentWithOptions(logPath, runId, echoToStderr);
 	} catch (err) {
 		return { detections: [], inferenceMs: 0, error: `Environment setup failed: ${(err as Error).message}` };
 	}
 
-	const t0   = Date.now();
-	const proc = Bun.spawn([VENV_PYTHON, inferScript], {
-		stdin: "pipe", stdout: "pipe", stderr: "pipe",
-	});
-	proc.stdin.write(JSON.stringify({ imagePath, modelPath, confidence }));
-	proc.stdin.end();
-
-	const decoder = new TextDecoder();
-	let stdout = ""; let stderr = "";
-	await Promise.all([
-		(async () => { for await (const c of proc.stdout) stdout += decoder.decode(c); })(),
-		(async () => { for await (const c of proc.stderr) stderr += decoder.decode(c); })(),
-	]);
-	await proc.exited;
+	const t0 = Date.now();
+	const { stdout, stderr } = await spawnCollect(
+		[VENV_PYTHON, inferScript],
+		JSON.stringify({ imagePath, modelPath, confidence }),
+	);
 
 	const inferenceMs = Date.now() - t0;
 	const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
