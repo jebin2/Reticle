@@ -7,8 +7,7 @@ import {
 	YOLO_DIR, TRAIN_SCRIPT, INFER_SCRIPT, EXPORT_SCRIPT,
 	YOLO_UTILS_SCRIPT,
 	VENV_PYTHON, runningProcesses,
-	prepareEnvironment, runInference, spawnCollect,
-	pipeLines, checkpointPath,
+	prepareEnvironment, runInference, runProcess, streamProcessOutput, checkpointPath,
 } from "./util";
 
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif"]);
@@ -195,11 +194,11 @@ const rpc = defineElectrobunRPC("bun", {
 				proc.stdin.write(JSON.stringify(config));
 				proc.stdin.end();
 
-				pipeLines(proc.stdout, line => appendFile(logPath, line + "\n").catch(console.error))
-					.then(() => runningProcesses.delete(config.id)).catch(console.error);
-				pipeLines(proc.stderr, text =>
-					appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(console.error)
-				).catch(console.error);
+				streamProcessOutput(proc, {
+					stdoutHandler: line => appendFile(logPath, line + "\n").catch(console.error),
+					stderrHandler: text =>
+						appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(console.error),
+				}).then(() => runningProcesses.delete(config.id)).catch(console.error);
 
 				return { started: true };
 			},
@@ -234,10 +233,12 @@ const rpc = defineElectrobunRPC("bun", {
 					const size = (await Bun.file(modelPath).size) ?? 0;
 					return { exportedPath: modelPath, fileSize: size, error: null };
 				}
-				const { stdout, stderr } = await spawnCollect(
-					[VENV_PYTHON, EXPORT_SCRIPT],
-					JSON.stringify({ modelPath, format }),
-				);
+				const { stdout, stderr } = await runProcess([VENV_PYTHON, EXPORT_SCRIPT], {
+					stdinData: JSON.stringify({ modelPath, format }),
+					stderrHandler: async text => {
+						console.error("[export]", text);
+					},
+				});
 				const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
 				try {
 					const data = JSON.parse(line);

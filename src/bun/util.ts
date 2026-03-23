@@ -27,6 +27,17 @@ export type Detection = {
 	cx: number; cy: number; w: number; h: number;
 };
 
+type LineHandler = (line: string) => Promise<void>;
+type RunProcessOptions = {
+	stdinData?: string;
+	stdoutHandler?: LineHandler;
+	stderrHandler?: LineHandler;
+	collectStdout?: boolean;
+	collectStderr?: boolean;
+	env?: Record<string, string | undefined>;
+	runId?: string;
+};
+
 // ── Process registry (for stopTraining) ──────────────────────────────────────
 
 export const runningProcesses = new Map<string, ReturnType<typeof Bun.spawn>>();
@@ -39,15 +50,19 @@ export function cleanLine(raw: string): string {
 	return segments[segments.length - 1].replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").trim();
 }
 
-// Buffer a byte pipe, split on \n, clean each line, call onLine per entry.
-export async function pipeLines(
+async function streamPipe(
 	pipe: AsyncIterable<Uint8Array>,
-	onLine: (line: string) => Promise<void>,
-): Promise<void> {
+	onLine?: LineHandler,
+	collect = false,
+): Promise<string> {
 	const decoder = new TextDecoder();
+	let text = "";
 	let buf = "";
 	for await (const chunk of pipe) {
-		buf += decoder.decode(chunk, { stream: true });
+		const decoded = decoder.decode(chunk, { stream: true });
+		if (collect) text += decoded;
+		if (!onLine) continue;
+		buf += decoded;
 		const lines = buf.split("\n");
 		buf = lines.pop() ?? "";
 		for (const line of lines) {
@@ -55,8 +70,62 @@ export async function pipeLines(
 			if (clean) await onLine(clean);
 		}
 	}
-	const clean = cleanLine(buf);
-	if (clean) await onLine(clean);
+	const tail = decoder.decode();
+	if (collect) text += tail;
+	if (onLine) {
+		if (tail) buf += tail;
+		const clean = cleanLine(buf);
+		if (clean) await onLine(clean);
+	}
+	return text;
+}
+
+export async function runProcess(
+	cmd: string[],
+	{
+		stdinData,
+		stdoutHandler,
+		stderrHandler,
+		collectStdout = true,
+		collectStderr = true,
+		env,
+		runId,
+	}: RunProcessOptions = {},
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+	const proc = Bun.spawn(cmd, {
+		stdin: "pipe",
+		stdout: "pipe",
+		stderr: "pipe",
+		env,
+	});
+	if (runId) runningProcesses.set(runId, proc);
+	if (stdinData !== undefined) {
+		proc.stdin.write(stdinData);
+	}
+	proc.stdin.end();
+	try {
+		const [stdout, stderr, exitCode] = await Promise.all([
+			streamPipe(proc.stdout, stdoutHandler, collectStdout),
+			streamPipe(proc.stderr, stderrHandler, collectStderr),
+			proc.exited,
+		]);
+		return { stdout, stderr, exitCode };
+	} finally {
+		if (runId) runningProcesses.delete(runId);
+	}
+}
+
+export async function streamProcessOutput(
+	proc: ReturnType<typeof Bun.spawn>,
+	handlers: {
+		stdoutHandler?: LineHandler;
+		stderrHandler?: LineHandler;
+	},
+): Promise<void> {
+	await Promise.all([
+		streamPipe(proc.stdout, handlers.stdoutHandler, false),
+		streamPipe(proc.stderr, handlers.stderrHandler, false),
+	]);
 }
 
 // Canonical path to the YOLO training checkpoint for a given output directory.
@@ -117,38 +186,31 @@ export async function downloadPythonRuntime(
 }
 
 // ── prepareEnvironment ────────────────────────────────────────────────────────
-// Ensures the bundled Python runtime + ultralytics venv are ready.
+// Ensures the cached Python runtime + ultralytics venv are ready.
 // Returns VENV_PYTHON so the caller can spawn Python directly.
 
 export async function prepareEnvironment(
 	logPath: string,
 	runId: string,
-	echoToStderr = false,
+	stderrHandler?: LineHandler,
 ): Promise<string> {
 	const log = async (text: string) => {
 		await appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(() => {});
-		if (echoToStderr) process.stderr.write(text + "\n");
+		await stderrHandler?.(text);
 	};
 
 	async function run(cmd: string[], label: string): Promise<void> {
-		const proc = Bun.spawn(cmd, {
-			stdout: "pipe",
-			stderr: "pipe",
+		const { exitCode } = await runProcess(cmd, {
+			stdoutHandler: log,
+			stderrHandler: log,
+			collectStdout: false,
+			collectStderr: false,
 			env: { ...process.env, PYTHONUNBUFFERED: "1" },
+			runId,
 		});
-		runningProcesses.set(runId, proc);
-		try {
-			await Promise.all([
-				pipeLines(proc.stdout, log).catch(() => {}),
-				pipeLines(proc.stderr, log).catch(() => {}),
-			]);
-			const code = await proc.exited;
-			if (code !== 0) {
-				await log(`[setup] ✗ ${label} failed (exit ${code})`);
-				throw new Error(`${label} failed with exit code ${code}`);
-			}
-		} finally {
-			runningProcesses.delete(runId);
+		if (exitCode !== 0) {
+			await log(`[setup] ✗ ${label} failed (exit ${exitCode})`);
+			throw new Error(`${label} failed with exit code ${exitCode}`);
 		}
 	}
 
@@ -174,27 +236,6 @@ export async function prepareEnvironment(
 	return VENV_PYTHON;
 }
 
-// ── spawnCollect ──────────────────────────────────────────────────────────────
-// Spawns a process, writes stdinData, collects stdout + stderr to strings.
-// Used by runInference and exportModel to avoid duplicating the pattern.
-
-export async function spawnCollect(
-	cmd: string[],
-	stdinData: string,
-): Promise<{ stdout: string; stderr: string }> {
-	const proc = Bun.spawn(cmd, { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
-	proc.stdin.write(stdinData);
-	proc.stdin.end();
-	const dec = new TextDecoder();
-	let stdout = ""; let stderr = "";
-	await Promise.all([
-		(async () => { for await (const c of proc.stdout) stdout += dec.decode(c); })(),
-		(async () => { for await (const c of proc.stderr) stderr += dec.decode(c); })(),
-	]);
-	await proc.exited;
-	return { stdout, stderr };
-}
-
 // ── runInference ──────────────────────────────────────────────────────────────
 // Calls prepareEnvironment then spawns inferScript with the standard JSON
 // stdin → JSON stdout protocol. Used by both the desktop RPC handler and CLI.
@@ -206,18 +247,26 @@ export async function runInference(
 	inferScript: string,
 	logPath:     string,
 	runId:       string,
-	echoToStderr = false,
+	stderrHandler?: LineHandler,
 ): Promise<{ detections: Detection[]; inferenceMs: number; error: string | null }> {
 	try {
-		await prepareEnvironment(logPath, runId, echoToStderr);
+		await prepareEnvironment(logPath, runId, stderrHandler);
 	} catch (err) {
 		return { detections: [], inferenceMs: 0, error: `Environment setup failed: ${(err as Error).message}` };
 	}
 
+	const logStderr = async (text: string) => {
+		await appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(() => {});
+		await stderrHandler?.(text);
+	};
+
 	const t0 = Date.now();
-	const { stdout, stderr } = await spawnCollect(
+	const { stdout, stderr } = await runProcess(
 		[VENV_PYTHON, inferScript],
-		JSON.stringify({ imagePath, modelPath, confidence }),
+		{
+			stdinData: JSON.stringify({ imagePath, modelPath, confidence }),
+			stderrHandler: logStderr,
+		},
 	);
 
 	const inferenceMs = Date.now() - t0;

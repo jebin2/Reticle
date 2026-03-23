@@ -73,7 +73,10 @@ await writeFile(join(inferDir, "yolo_utils.py"), await Bun.file(yoloUtilsPyPath)
 // ── Run inference (same util function as the desktop app) ─────────────────────
 
 const { detections, inferenceMs, error } = await runInference(
-	imagePath, modelPath, confidence, inferPyTmpPath, logPath, "cli", true,
+	imagePath, modelPath, confidence, inferPyTmpPath, logPath, "cli",
+	async line => {
+		process.stderr.write(line + "\n");
+	},
 );
 
 if (error) {
