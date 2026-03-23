@@ -14,7 +14,7 @@ const VENV_DIR        = join(YOLO_DIR, "venv");
 
 // python-build-standalone extracts to python/install/...
 const IS_WIN          = process.platform === "win32";
-const RUNTIME_PYTHON  = join(RUNTIME_DIR, "python", "install", IS_WIN ? "python.exe" : "bin/python3");
+const RUNTIME_PYTHON  = join(RUNTIME_DIR, "python", IS_WIN ? "python.exe" : "bin/python3");
 const VENV_PYTHON     = join(VENV_DIR, IS_WIN ? "Scripts/python.exe" : "bin/python");
 
 /**
