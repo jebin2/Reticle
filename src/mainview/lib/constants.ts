@@ -26,11 +26,11 @@ export const RUN_STATUS_COLORS: Record<RunStatus, string> = {
 };
 
 export const BASE_MODELS = [
-  "yolo11n",
-  "yolo11s",
-  "yolo11m",
-  "yolo11l",
-  "yolo11x",
+  "yolo26n",
+  "yolo26s",
+  "yolo26m",
+  "yolo26l",
+  "yolo26x",
 ];
 
 export const DEVICES = ["auto", "cpu", "cuda:0", "mps"];
