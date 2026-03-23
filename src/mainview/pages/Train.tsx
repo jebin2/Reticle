@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, MoreHorizontal, FolderOpen, Cpu } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, FolderOpen, Cpu, Play, Square, AlertCircle } from "lucide-react";
 import { type TrainingRun, type Asset } from "../lib/types";
 import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, BASE_MODELS, DEVICES, CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
@@ -10,12 +10,118 @@ interface Props {
   onRunsChange: (runs: TrainingRun[]) => void;
 }
 
+// ── log parsing ────────────────────────────────────────────────────────────────
+
+type LogProgress = { epoch: number; epochs: number; loss: number | null; mAP: number | null };
+type LogDone     = { mAP50: number; mAP50_95: number; weightsPath: string };
+type LogError    = { message: string };
+
+function parseLog(lines: string[]): { progress?: LogProgress; done?: LogDone; error?: LogError } {
+  let progress: LogProgress | undefined;
+  let done: LogDone | undefined;
+  let error: LogError | undefined;
+
+  for (const line of lines) {
+    try {
+      const ev = JSON.parse(line);
+      if (ev.type === "progress") progress = { epoch: ev.epoch, epochs: ev.epochs, loss: ev.loss ?? null, mAP: ev.mAP ?? null };
+      if (ev.type === "done")    done    = { mAP50: ev.mAP50, mAP50_95: ev.mAP50_95, weightsPath: ev.weightsPath };
+      if (ev.type === "error")   error   = { message: ev.message };
+    } catch {}
+  }
+
+  return { progress, done, error };
+}
+
+// ── component ─────────────────────────────────────────────────────────────────
+
 export default function Train({ assets, runs, onRunsChange }: Props) {
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal]         = useState(false);
+  const [runProgress, setRunProgress]     = useState<Record<string, LogProgress>>({});
+
+  // Keep a stable ref so the polling interval always sees the latest runs/callback.
+  const runsRef          = useRef(runs);
+  const onRunsChangeRef  = useRef(onRunsChange);
+  runsRef.current        = runs;
+  onRunsChangeRef.current = onRunsChange;
+
+  // Poll log files for every training run once per second.
+  useEffect(() => {
+    const trainingIds = runs
+      .filter(r => r.status === "training")
+      .map(r => r.id)
+      .join(",");
+
+    if (!trainingIds) return;
+
+    async function poll() {
+      for (const run of runsRef.current.filter(r => r.status === "training")) {
+        try {
+          const { lines } = await getRPC().request.readTrainingLog({ outputPath: run.outputPath });
+          const { progress, done, error } = parseLog(lines);
+
+          if (done) {
+            onRunsChangeRef.current(runsRef.current.map(r =>
+              r.id === run.id
+                ? { ...r, status: "done" as const, mAP: done.mAP50, updatedAt: "just now" }
+                : r
+            ));
+          } else if (error) {
+            onRunsChangeRef.current(runsRef.current.map(r =>
+              r.id === run.id ? { ...r, status: "failed" as const, updatedAt: "just now" } : r
+            ));
+          } else if (progress) {
+            setRunProgress(prev => ({ ...prev, [run.id]: progress }));
+          }
+        } catch {}
+      }
+    }
+
+    poll();
+    const interval = setInterval(poll, 1000);
+    return () => clearInterval(interval);
+  }, [runs.filter(r => r.status === "training").map(r => r.id).join(",")]);
 
   function handleCreate(run: TrainingRun) {
     onRunsChange([...runs, run]);
     setShowModal(false);
+  }
+
+  async function handleStart(run: TrainingRun) {
+    const runAssets = assets.filter(a => run.assetIds.includes(a.id));
+    try {
+      const { started } = await getRPC().request.startTraining({
+        id:         run.id,
+        name:       run.name,
+        assetPaths: runAssets.map(a => a.storagePath),
+        classMap:   run.classMap,
+        baseModel:  run.baseModel,
+        epochs:     run.epochs,
+        batchSize:  run.batchSize,
+        imgsz:      run.imgsz,
+        device:     run.device,
+        outputPath: run.outputPath,
+      });
+      if (started) {
+        onRunsChange(runs.map(r =>
+          r.id === run.id ? { ...r, status: "training" as const, updatedAt: "just now" } : r
+        ));
+      }
+    } catch (err) {
+      console.error("Failed to start training:", err);
+    }
+  }
+
+  async function handleStop(run: TrainingRun) {
+    try {
+      await getRPC().request.stopTraining({ runId: run.id });
+      onRunsChange(runs.map(r =>
+        r.id === run.id ? { ...r, status: "idle" as const, updatedAt: "just now" } : r
+      ));
+      setRunProgress(prev => { const next = { ...prev }; delete next[run.id]; return next; });
+    } catch (err) {
+      console.error("Failed to stop training:", err);
+    }
   }
 
   return (
@@ -29,7 +135,7 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
               Train
             </h1>
             <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              Configure and launch training runs from your assets.
+              Configure and launch YOLO26 training runs from your assets.
             </p>
           </div>
           <button
@@ -51,7 +157,15 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
 
           {runs.map(run => (
-            <RunCard key={run.id} run={run} assets={assets} />
+            <RunCard
+              key={run.id}
+              run={run}
+              assets={assets}
+              progress={runProgress[run.id]}
+              onStart={() => handleStart(run)}
+              onStop={() => handleStop(run)}
+              onDelete={() => onRunsChange(runs.filter(r => r.id !== run.id))}
+            />
           ))}
 
           <button
@@ -87,55 +201,75 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
 
 // ── RunCard ────────────────────────────────────────────────────────────────────
 
-function RunCard({ run, assets }: { run: TrainingRun; assets: Asset[] }) {
+interface RunCardProps {
+  run: TrainingRun;
+  assets: Asset[];
+  progress?: LogProgress;
+  onStart: () => void;
+  onStop: () => void;
+  onDelete: () => void;
+}
+
+function RunCard({ run, assets, progress, onStart, onStop, onDelete }: RunCardProps) {
   const statusColor = RUN_STATUS_COLORS[run.status];
   const statusLabel = RUN_STATUS_LABELS[run.status];
   const runAssets   = assets.filter(a => run.assetIds.includes(a.id));
+  const pct         = progress ? Math.round((progress.epoch / progress.epochs) * 100) : 0;
 
   return (
-    <div
-      style={{
-        background: "var(--surface)", border: "1px solid var(--border)",
-        borderRadius: 8, overflow: "hidden", cursor: "pointer",
-        transition: "border-color 0.15s",
-      }}
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--border)",
+      borderRadius: 8, overflow: "hidden",
+      transition: "border-color 0.15s",
+    }}
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#444"; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)"; }}
     >
-      {/* Header band */}
-      <div style={{
-        height: 6,
-        background: statusColor,
-        opacity: run.status === "idle" ? 0.4 : 1,
-      }} />
+      {/* Status band / progress bar */}
+      {run.status === "training" && progress ? (
+        <div style={{ height: 6, background: "var(--border)", position: "relative" }}>
+          <div style={{
+            position: "absolute", left: 0, top: 0, height: "100%",
+            width: `${pct}%`, background: statusColor,
+            transition: "width 0.5s ease",
+          }} />
+        </div>
+      ) : (
+        <div style={{ height: 6, background: statusColor, opacity: run.status === "idle" ? 0.35 : 1 }} />
+      )}
 
       <div style={{ padding: "14px 14px 12px" }}>
-        {/* Run name + menu */}
+        {/* Run name + actions */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", letterSpacing: "-0.2px", fontFamily: "monospace" }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", letterSpacing: "-0.2px", fontFamily: "monospace", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {run.name}
           </h3>
-          <button
-            onClick={e => e.stopPropagation()}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "0 0 0 8px" }}
-          >
-            <MoreHorizontal size={14} />
-          </button>
+          <div style={{ display: "flex", gap: 4, marginLeft: 8, flexShrink: 0 }}>
+            {run.status === "idle" && (
+              <ActionBtn Icon={Play} color="var(--accent)" title="Start training" onClick={onStart} />
+            )}
+            {run.status === "training" && (
+              <ActionBtn Icon={Square} color="#EF4444" title="Stop training" onClick={onStop} />
+            )}
+            {(run.status === "idle" || run.status === "done" || run.status === "failed") && (
+              <ActionBtn Icon={AlertCircle} color="var(--text-muted)" title="Delete run" onClick={onDelete} danger />
+            )}
+          </div>
         </div>
 
         {/* Status + model */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{
             padding: "2px 7px", borderRadius: 4, fontSize: 11, fontWeight: 600,
             background: statusColor + "22", border: `1px solid ${statusColor}55`, color: statusColor,
-            letterSpacing: "0.04em", textTransform: "uppercase",
+            letterSpacing: "0.04em", textTransform: "uppercase", flexShrink: 0,
           }}>
             {statusLabel}
           </span>
-          <span style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <Cpu size={11} /> {run.baseModel}
           </span>
-          <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
+          <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace", flexShrink: 0 }}>
             {run.epochs}ep · {run.batchSize === -1 ? "auto" : `b${run.batchSize}`} · {run.imgsz}px
           </span>
           {run.mAP != null && (
@@ -145,8 +279,37 @@ function RunCard({ run, assets }: { run: TrainingRun; assets: Asset[] }) {
           )}
         </div>
 
-        {/* Assets used */}
-        <div style={{ marginBottom: 12 }}>
+        {/* Live progress (training only) */}
+        {run.status === "training" && progress && (
+          <div style={{
+            marginBottom: 10, padding: "8px 10px", borderRadius: 6,
+            background: "var(--bg)", border: "1px solid var(--border)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                Epoch {progress.epoch} / {progress.epochs}
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", fontFamily: "monospace" }}>
+                {pct}%
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 16 }}>
+              {progress.loss != null && (
+                <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
+                  loss <span style={{ color: "var(--text)" }}>{progress.loss.toFixed(4)}</span>
+                </span>
+              )}
+              {progress.mAP != null && (
+                <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
+                  mAP <span style={{ color: "var(--accent)" }}>{progress.mAP.toFixed(4)}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Assets */}
+        <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
             Assets
           </div>
@@ -160,13 +323,17 @@ function RunCard({ run, assets }: { run: TrainingRun; assets: Asset[] }) {
                 fontWeight: 500,
               }}>{a.name}</span>
             ))}
+            {runAssets.length === 0 && (
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>—</span>
+            )}
           </div>
         </div>
 
-        {/* Classes count */}
-        <div style={{ marginBottom: 12 }}>
+        {/* Classes */}
+        <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            {run.classMap.length} classes: <span style={{ color: "var(--text)", fontFamily: "monospace" }}>
+            {run.classMap.length} classes:{" "}
+            <span style={{ color: "var(--text)", fontFamily: "monospace" }}>
               {run.classMap.slice(0, 3).join(", ")}{run.classMap.length > 3 ? ` +${run.classMap.length - 3}` : ""}
             </span>
           </div>
@@ -177,9 +344,7 @@ function RunCard({ run, assets }: { run: TrainingRun; assets: Asset[] }) {
           <div style={{
             fontSize: 10, color: "var(--text-muted)", fontFamily: "monospace",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4,
-          }}
-            title={run.outputPath}
-          >
+          }} title={run.outputPath}>
             <FolderOpen size={10} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
             {run.outputPath}
           </div>
@@ -190,12 +355,33 @@ function RunCard({ run, assets }: { run: TrainingRun; assets: Asset[] }) {
   );
 }
 
+function ActionBtn({ Icon, color, title, onClick, danger }: {
+  Icon: React.ElementType; color: string; title: string; onClick: () => void; danger?: boolean;
+}) {
+  return (
+    <button
+      title={title}
+      onClick={e => { e.stopPropagation(); onClick(); }}
+      style={{
+        background: "none", border: "none", cursor: "pointer",
+        color, padding: "2px 4px", borderRadius: 4,
+        display: "flex", alignItems: "center",
+        transition: "opacity 0.12s",
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = danger ? "1" : "0.7"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+    >
+      <Icon size={13} />
+    </button>
+  );
+}
+
 // ── NewRunModal ────────────────────────────────────────────────────────────────
 
-const DEFAULT_EPOCHS    = 100;
-const DEFAULT_BATCH     = 16;
-const DEFAULT_IMGSZ     = 640;
-const DEFAULT_DEVICE    = "auto";
+const DEFAULT_EPOCHS = 100;
+const DEFAULT_BATCH  = 16;
+const DEFAULT_IMGSZ  = 640;
+const DEFAULT_DEVICE = "auto";
 
 function NewRunModal({ assets, onClose, onCreate }: {
   assets: Asset[];
@@ -214,7 +400,7 @@ function NewRunModal({ assets, onClose, onCreate }: {
   const [outputEdited, setOutputEdited]     = useState(false);
   const [picking, setPicking]               = useState(false);
 
-  // Build merged class list (preserving insertion order, deduplicating)
+  // Build merged class list (stable insertion order, deduplicated).
   const classMap = [...new Map(
     assets
       .filter(a => selectedAssets.includes(a.id))
@@ -222,12 +408,11 @@ function NewRunModal({ assets, onClose, onCreate }: {
       .map(c => [c, c])
   ).keys()];
 
-  // Auto-suggest run name from first selected asset + model when user hasn't typed one.
   function toggleAsset(id: string) {
     setSelectedAssets(prev => {
       const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
       if (!nameEdited) {
-        const first = assets.find(a => next[0] === a.id);
+        const first = assets.find(a => a.id === next[0]);
         const suggested = first
           ? `${first.name.toLowerCase().replace(/\s+/g, "-")}-${baseModel}-v1`
           : "";
@@ -238,13 +423,10 @@ function NewRunModal({ assets, onClose, onCreate }: {
     });
   }
 
-  // Sync output path when name changes (unless user has manually edited it).
   function handleNameChange(val: string) {
     setName(val);
     setNameEdited(true);
-    if (!outputEdited) {
-      setOutputPath(val.trim() ? `~/.yolostudio/runs/${val.trim()}` : "");
-    }
+    if (!outputEdited) setOutputPath(val.trim() ? `~/.yolostudio/runs/${val.trim()}` : "");
   }
 
   async function pickFolder() {
@@ -299,31 +481,27 @@ function NewRunModal({ assets, onClose, onCreate }: {
         ) : (
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* Run name */}
             <Field label="Run Name">
               <input
                 autoFocus
                 value={name}
                 onChange={e => handleNameChange(e.target.value)}
-                placeholder="e.g. vehicles-yolo11n-v1"
+                placeholder="e.g. vehicles-yolo26n-v1"
                 style={{ ...inputStyle, fontFamily: "monospace" }}
               />
             </Field>
 
-            {/* Assets */}
             <Field label="Assets">
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {assets.map(a => {
-                  const selected  = selectedAssets.includes(a.id);
-                  const annotated = a.annotatedCount;
-                  const total     = a.imageCount;
-                  const ready     = annotated > 0;
+                  const selected = selectedAssets.includes(a.id);
+                  const ready    = a.annotatedCount > 0;
                   return (
                     <label
                       key={a.id}
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
-                        padding: "8px 10px", borderRadius: 6, cursor: "pointer",
+                        padding: "8px 10px", borderRadius: 6, cursor: ready ? "pointer" : "default",
                         border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
                         background: selected ? "rgba(59,130,246,0.06)" : "var(--bg)",
                         transition: "border-color 0.12s, background 0.12s",
@@ -340,7 +518,7 @@ function NewRunModal({ assets, onClose, onCreate }: {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{a.name}</div>
                         <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                          {annotated}/{total} annotated · {a.classes.length} classes
+                          {a.annotatedCount}/{a.imageCount} annotated · {a.classes.length} classes
                           {!ready && <span style={{ color: "#EF4444", marginLeft: 6 }}>— no annotations</span>}
                         </div>
                       </div>
@@ -350,7 +528,6 @@ function NewRunModal({ assets, onClose, onCreate }: {
               </div>
             </Field>
 
-            {/* Class map preview */}
             {classMap.length > 0 && (
               <div style={{ padding: "10px 12px", borderRadius: 6, background: "var(--bg)", border: "1px solid var(--border)" }}>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
@@ -372,18 +549,12 @@ function NewRunModal({ assets, onClose, onCreate }: {
               </div>
             )}
 
-            {/* Base model */}
             <Field label="Base Model">
-              <select
-                value={baseModel}
-                onChange={e => setBaseModel(e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              >
+              <select value={baseModel} onChange={e => setBaseModel(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
                 {BASE_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
 
-            {/* Hyperparameters */}
             <Field label="Hyperparameters">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <NumField label="Epochs"     value={epochs}    min={1}   max={10000} onChange={setEpochs} />
@@ -391,18 +562,13 @@ function NewRunModal({ assets, onClose, onCreate }: {
                 <NumField label="Image Size" value={imgsz}     min={32}  max={1280}  onChange={setImgsz} />
                 <div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Device</div>
-                  <select
-                    value={device}
-                    onChange={e => setDevice(e.target.value)}
-                    style={{ ...inputStyle, cursor: "pointer", padding: "6px 10px" }}
-                  >
+                  <select value={device} onChange={e => setDevice(e.target.value)} style={{ ...inputStyle, padding: "6px 10px", cursor: "pointer" }}>
                     {DEVICES.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
               </div>
             </Field>
 
-            {/* Output folder */}
             <Field label="Output Folder">
               <div style={{ display: "flex", gap: 8 }}>
                 <input
@@ -427,7 +593,6 @@ function NewRunModal({ assets, onClose, onCreate }: {
               </div>
             </Field>
 
-            {/* Actions */}
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
               <button
                 type="button"

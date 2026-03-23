@@ -1,10 +1,14 @@
 import Electrobun, { BrowserWindow, defineElectrobunRPC } from "electrobun/bun";
-import { readdir, mkdir, copyFile } from "fs/promises";
+import { readdir, mkdir, copyFile, appendFile } from "fs/promises";
 import { join, extname, basename } from "path";
 import { randomBytes } from "crypto";
 import { homedir } from "os";
 
-const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif"]);
+const IMAGE_EXTS   = new Set([".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif"]);
+const TRAIN_SCRIPT = join(import.meta.dir, "../python/train.py");
+
+// Tracks active training subprocesses keyed by run ID.
+const runningProcesses = new Map<string, ReturnType<typeof Bun.spawn>>();
 
 // ── binary bridge ─────────────────────────────────────────────────────────────
 // Serves image files to the renderer by path. Avoids base64 encoding entirely.
@@ -190,6 +194,82 @@ const rpc = defineElectrobunRPC("bun", {
 				return canceled
 					? { canceled: true, path: "" }
 					: { canceled: false, path: filePaths[0] };
+			},
+
+			startTraining: async (config: {
+				id: string; name: string; assetPaths: string[]; classMap: string[];
+				baseModel: string; epochs: number; batchSize: number; imgsz: number;
+				device: string; outputPath: string;
+			}) => {
+				await mkdir(config.outputPath, { recursive: true });
+				const logPath = join(config.outputPath, "train.log");
+
+				// Write start entry to log.
+				await appendFile(logPath, JSON.stringify({
+					type: "start", timestamp: new Date().toISOString(), config,
+				}) + "\n");
+
+				const proc = Bun.spawn(["python3", TRAIN_SCRIPT], {
+					stdin:  "pipe",
+					stdout: "pipe",
+					stderr: "pipe",
+				});
+
+				runningProcesses.set(config.id, proc);
+
+				// Write JSON config to Python stdin then close it.
+				proc.stdin.write(JSON.stringify(config));
+				proc.stdin.end();
+
+				// Stream stdout → log file (fire-and-forget).
+				(async () => {
+					const decoder = new TextDecoder();
+					let   buffer  = "";
+					for await (const chunk of proc.stdout) {
+						buffer += decoder.decode(chunk, { stream: true });
+						const lines = buffer.split("\n");
+						buffer = lines.pop() ?? "";
+						for (const line of lines) {
+							if (!line.trim()) continue;
+							await appendFile(logPath, line + "\n").catch(console.error);
+						}
+					}
+					if (buffer.trim()) await appendFile(logPath, buffer + "\n").catch(console.error);
+					runningProcesses.delete(config.id);
+				})().catch(console.error);
+
+				// Stream stderr → log file as typed entries.
+				(async () => {
+					const decoder = new TextDecoder();
+					for await (const chunk of proc.stderr) {
+						const text = decoder.decode(chunk).trim();
+						if (text) await appendFile(logPath,
+							JSON.stringify({ type: "stderr", text }) + "\n"
+						).catch(console.error);
+					}
+				})().catch(console.error);
+
+				return { started: true };
+			},
+
+			readTrainingLog: async ({ outputPath }: { outputPath: string }) => {
+				const logPath = join(outputPath, "train.log");
+				try {
+					const content = await Bun.file(logPath).text();
+					const lines   = content.split("\n").filter(l => l.trim());
+					return { lines };
+				} catch {
+					return { lines: [] };
+				}
+			},
+
+			stopTraining: async ({ runId }: { runId: string }) => {
+				const proc = runningProcesses.get(runId);
+				if (proc) {
+					proc.kill();
+					runningProcesses.delete(runId);
+				}
+				return {};
 			},
 		},
 	},

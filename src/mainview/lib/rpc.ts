@@ -55,6 +55,29 @@ type RPCSchema = {
         };
         response: { images: Array<{ filename: string; filePath: string }> };
       };
+      startTraining: {
+        params: {
+          id:         string;
+          name:       string;
+          assetPaths: string[];
+          classMap:   string[];
+          baseModel:  string;
+          epochs:     number;
+          batchSize:  number;
+          imgsz:      number;
+          device:     string;
+          outputPath: string;
+        };
+        response: { started: boolean };
+      };
+      readTrainingLog: {
+        params:   { outputPath: string };
+        response: { lines: string[] };
+      };
+      stopTraining: {
+        params:   { runId: string };
+        response: Record<string, never>;
+      };
     };
     messages: {};
     push: {};
