@@ -462,7 +462,7 @@ const rpc = defineElectrobunRPC("bun", {
 					return { bundlePath: "", error: "Model weights not found." };
 
 				const safeName  = runName.replace(/[^a-zA-Z0-9_-]/g, "_");
-				const outBinary = join(destDir, safeName + (process.platform === "win32" ? ".exe" : ""));
+				const outBinary = join(destDir, `${safeName}-detect${process.platform === "win32" ? ".exe" : ""}`);
 
 				// Create a temp dir with all assets the template needs at compile time.
 				const buildDir = await mkdtemp(join(tmpdir(), "yolostudio-cli-"));
