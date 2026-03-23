@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>YOLOStudio - Train</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary": "#502400",
+              "on-secondary-container": "#9fb5e7",
+              "inverse-surface": "#e5e2e1",
+              "secondary-container": "#304671",
+              "on-tertiary-fixed-variant": "#723600",
+              "on-primary-fixed-variant": "#004395",
+              "error-container": "#93000a",
+              "surface-container-highest": "#353534",
+              "surface-container-high": "#2a2a2a",
+              "surface-container": "#201f1f",
+              "error": "#ffb4ab",
+              "tertiary-fixed-dim": "#ffb786",
+              "on-secondary-fixed": "#001a42",
+              "surface-tint": "#adc6ff",
+              "outline-variant": "#424754",
+              "tertiary-container": "#df7412",
+              "on-surface-variant": "#c2c6d6",
+              "on-error": "#690005",
+              "on-tertiary-fixed": "#311400",
+              "on-error-container": "#ffdad6",
+              "tertiary": "#ffb786",
+              "on-tertiary-container": "#461f00",
+              "surface": "#131313",
+              "inverse-primary": "#005ac2",
+              "secondary-fixed": "#d8e2ff",
+              "secondary-fixed-dim": "#b1c6f9",
+              "tertiary-fixed": "#ffdcc6",
+              "primary": "#adc6ff",
+              "on-secondary-fixed-variant": "#304671",
+              "inverse-on-surface": "#313030",
+              "background": "#131313",
+              "on-secondary": "#182f59",
+              "primary-container": "#4d8eff",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-dim": "#131313",
+              "on-background": "#e5e2e1",
+              "on-primary-container": "#00285d",
+              "outline": "#8c909f",
+              "on-primary-fixed": "#001a42",
+              "surface-container-low": "#1c1b1b",
+              "surface-bright": "#3a3939",
+              "primary-fixed-dim": "#adc6ff",
+              "surface-variant": "#353534",
+              "on-primary": "#002e6a",
+              "secondary": "#b1c6f9",
+              "on-surface": "#e5e2e1",
+              "primary-fixed": "#d8e2ff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"],
+              "mono": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #131313; color: #e5e2e1; font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .mono-text { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #131313; }
+        ::-webkit-scrollbar-thumb { background: #353534; border-radius: 2px; }
+    </style>
+</head>
+<body class="flex overflow-hidden h-screen">
+<!-- SideNavBar Component -->
+<aside class="bg-[#1C1B1B] dark:bg-[#1C1B1B] fixed left-0 top-0 h-full w-[220px] flex flex-col h-full py-8 z-50">
+<div class="px-6 mb-10 flex flex-col gap-1">
+<span class="text-lg font-bold text-[#ADC6FF]">YOLOStudio</span>
+<span class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Kinetic Laboratory</span>
+</div>
+<nav class="flex-1">
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-[20px]" data-icon="folder_open">folder_open</span>
+<span class="text-sm font-medium">Projects</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-[20px]" data-icon="edit_note">edit_note</span>
+<span class="text-sm font-medium">Annotate</span>
+</a>
+<!-- Active State: Train -->
+<a class="flex items-center text-[#ADC6FF] border-l-4 border-[#ADC6FF] bg-[#2A2A2A] px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-[20px]" data-icon="model_training" style="font-variation-settings: 'FILL' 1;">model_training</span>
+<span class="text-sm font-medium">Train</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-[20px]" data-icon="Psychology">psychology</span>
+<span class="text-sm font-medium">Inference</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-[20px]" data-icon="ios_share">ios_share</span>
+<span class="text-sm font-medium">Export</span>
+</a>
+</nav>
+<div class="mt-auto px-4 flex flex-col gap-2">
+<button class="bg-[#2A2A2A] text-[#ADC6FF] py-2 px-4 rounded-lg flex items-center justify-center gap-2 mb-6 hover:bg-[#353534] transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+<span class="text-xs font-bold uppercase tracking-wider">New Project</span>
+</button>
+<a class="flex items-center text-slate-500 px-4 py-2 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined mr-3 text-[18px]" data-icon="help">help</span>
+<span class="text-xs">Documentation</span>
+</a>
+<a class="flex items-center text-slate-500 px-4 py-2 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined mr-3 text-[18px]" data-icon="contact_support">contact_support</span>
+<span class="text-xs">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="flex-1 ml-[220px] flex flex-col bg-[#131313] min-w-0">
+<!-- TopNavBar Component -->
+<header class="bg-[#131313] dark:bg-[#131313] flex justify-between items-center w-full px-6 h-16 bg-[#1C1B1B] no-border tonal-shift flex-shrink-0">
+<div class="flex items-center gap-8">
+<span class="text-xl font-black text-[#ADC6FF] tracking-tighter">YOLOStudio</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-slate-400 font-medium text-sm hover:text-[#ADC6FF] transition-colors" href="#">Projects</a>
+<a class="text-slate-400 font-medium text-sm hover:text-[#ADC6FF] transition-colors" href="#">Annotate</a>
+<a class="text-[#ADC6FF] border-b-2 border-[#ADC6FF] pb-1 font-medium text-sm" href="#">Train</a>
+<a class="text-slate-400 font-medium text-sm hover:text-[#ADC6FF] transition-colors" href="#">Inference</a>
+<a class="text-slate-400 font-medium text-sm hover:text-[#ADC6FF] transition-colors" href="#">Export</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-white p-2">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-slate-400 hover:text-white p-2">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden bg-surface-container-highest">
+<img alt="User Profile" class="h-full w-full object-cover" data-alt="User profile avatar portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQjLmGpsZsKo7nApk74zR23Wfb9r-xaW0wo6wZ_VTP3f-xUup1AEZeAQrYsMuogIZuG2soJsnhEpvaOnlLOudHWWkMkNt92nVlruMCqKsXTFGkGI5y1uPSqZgiMJgF0D23MLlda_seAq5Ns0YGUEgEz_C_rYmF3Khwbv9VEI-6y2GN0XfAUOURpxeib5U1lne9sn6WT-da9gR08Cvu2iT2RJ-MWZRROQjm35V2X3SzIO4nXB8v2xl0kXlRyoddcsCcmUB4AdoMqlcw"/>
+</div>
+</div>
+</header>
+<!-- Train Content Canvas -->
+<div class="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-6">
+<!-- Control Bar Section -->
+<section class="flex flex-col md:flex-row gap-6 items-end justify-between bg-surface-container-low p-6 rounded-lg">
+<div class="flex flex-wrap items-center gap-8 w-full md:w-auto">
+<!-- Epochs -->
+<div class="flex flex-col gap-2">
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Epochs</label>
+<input class="bg-surface-container-highest border-none text-on-surface text-sm rounded-lg w-24 px-3 py-2 focus:ring-1 focus:ring-primary/40 mono-text" type="number" value="50"/>
+</div>
+<!-- Image Size -->
+<div class="flex flex-col gap-2">
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Img Size</label>
+<div class="relative">
+<select class="bg-surface-container-highest border-none text-on-surface text-sm rounded-lg w-32 px-3 py-2 pr-8 appearance-none focus:ring-1 focus:ring-primary/40 mono-text">
+<option>640</option>
+<option>1024</option>
+<option>1280</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none text-sm" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<!-- Presets -->
+<div class="flex flex-col gap-2">
+<label class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Preset Configuration</label>
+<div class="flex bg-surface-container-highest p-1 rounded-lg">
+<button class="px-4 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors rounded-md">Fast</button>
+<button class="px-4 py-1.5 text-xs font-bold bg-primary text-on-primary rounded-md shadow-lg">Balanced</button>
+<button class="px-4 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors rounded-md">Accurate</button>
+</div>
+</div>
+</div>
+<button class="bg-[#3B82F6] hover:bg-primary-container text-white px-8 h-[42px] flex items-center justify-center gap-2 rounded-lg font-bold text-sm tracking-tight transition-all active:scale-95 group">
+<span class="material-symbols-outlined group-hover:rotate-12 transition-transform" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                    Start Training
+                </button>
+</section>
+<!-- Main Training Monitor -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+<!-- Chart Area -->
+<div class="lg:col-span-2 bg-surface-container-high rounded-lg p-6 flex flex-col relative overflow-hidden">
+<div class="flex justify-between items-center mb-8">
+<div class="flex items-center gap-3">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<h2 class="text-sm font-bold uppercase tracking-[0.15em] text-on-surface">Live Network Loss</h2>
+<span class="bg-[#353534] text-[#ADC6FF] text-[10px] px-2 py-0.5 rounded-sm font-mono border border-[#ADC6FF]/20">Training...</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="w-3 h-0.5 bg-[#3B82F6]"></span>
+<span class="text-[10px] font-mono text-slate-400 uppercase">Box Loss</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-0.5 bg-white"></span>
+<span class="text-[10px] font-mono text-slate-400 uppercase">Class Loss</span>
+</div>
+</div>
+</div>
+<!-- SVG Chart -->
+<div class="flex-1 w-full relative group">
+<!-- Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between py-2 pointer-events-none opacity-10">
+<div class="w-full h-px bg-white"></div>
+<div class="w-full h-px bg-white"></div>
+<div class="w-full h-px bg-white"></div>
+<div class="w-full h-px bg-white"></div>
+</div>
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 800 300">
+<!-- Box Loss Line -->
+<polyline fill="none" points="0,250 50,230 100,210 150,180 200,165 250,150 300,140 350,135 400,128 450,122 500,118 520,115" stroke="#3B82F6" stroke-width="2"></polyline>
+<!-- Class Loss Line -->
+<polyline fill="none" points="0,280 50,270 100,240 150,230 200,200 250,195 300,180 350,178 400,170 450,168 500,160 520,158" stroke="#FFFFFF" stroke-dasharray="4" stroke-width="1.5"></polyline>
+<!-- Progress Pointer -->
+<circle class="animate-pulse" cx="520" cy="115" fill="#3B82F6" r="4"></circle>
+</svg>
+<!-- Axis Labels -->
+<div class="absolute bottom-0 left-0 text-[9px] font-mono text-slate-600">Epoch 0</div>
+<div class="absolute bottom-0 right-0 text-[9px] font-mono text-slate-600">Epoch 50</div>
+</div>
+<!-- Progress Stats Overlay -->
+<div class="mt-8 pt-6 border-t border-outline-variant/10 flex items-center justify-between">
+<div class="flex-1 max-w-md">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[10px] font-bold text-slate-500 uppercase">Training Progress</span>
+<span class="mono-text text-sm font-bold text-primary">65%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-1000" style="width: 65%;"></div>
+</div>
+</div>
+<div class="flex gap-12 ml-12">
+<div class="flex flex-col">
+<span class="text-[9px] font-bold text-slate-600 uppercase">Current Epoch</span>
+<span class="mono-text text-lg text-on-surface">32/50</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[9px] font-bold text-slate-600 uppercase">Estimated Arrival</span>
+<span class="mono-text text-lg text-on-surface">00:04:12</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Metrics Sidebar -->
+<div class="flex flex-col gap-6">
+<div class="bg-surface-container-high rounded-lg p-5 flex flex-col gap-4">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500">Real-time Validation</h3>
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest rounded">
+<span class="text-xs text-slate-400">mAP @ .50</span>
+<span class="mono-text text-primary text-sm font-bold">0.892</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest rounded">
+<span class="text-xs text-slate-400">mAP @ .50:.95</span>
+<span class="mono-text text-primary text-sm font-bold">0.641</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest rounded">
+<span class="text-xs text-slate-400">Precision</span>
+<span class="mono-text text-primary text-sm font-bold">0.875</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest rounded">
+<span class="text-xs text-slate-400">Recall</span>
+<span class="mono-text text-primary text-sm font-bold">0.824</span>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-lg p-5 flex-1 relative overflow-hidden flex flex-col">
+<h3 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Hardware Telemetry</h3>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-[10px] mb-1">
+<span class="text-slate-500 uppercase">NVIDIA RTX 4090 Load</span>
+<span class="mono-text text-white">92%</span>
+</div>
+<div class="h-1 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 92%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-[10px] mb-1">
+<span class="text-slate-500 uppercase">VRAM (21.4 / 24 GB)</span>
+<span class="mono-text text-white">89%</span>
+</div>
+<div class="h-1 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 89%;"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-[10px] mb-1">
+<span class="text-slate-500 uppercase">Core Temp</span>
+<span class="mono-text text-white">68°C</span>
+</div>
+<div class="h-1 bg-surface-container-lowest rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container" style="width: 68%;"></div>
+</div>
+</div>
+</div>
+<div class="mt-auto flex justify-center py-4">
+<img alt="Abstract hardware sensor background" class="w-full h-24 object-cover opacity-20 grayscale" data-alt="Abstract schematic of a high performance GPU chip" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd6QoxADHXNpWz-VUGL2V623l0nNq8Ba2NMm2XlOIYPLEK84o610vYcXlV8URi7Jn3Jxok7miUkNyS6dhX5psvYUZajZeFDPk8ATz-tTFU5mZua11PSSYPXeZfAUMVxoeVQl0ZoCPfkwT68OqAjajnPToMxAsTWOdrft8AKjc0X_LN0O6MrZv37APWu_WBf-ZWAJfe_4BBsPV5b_-xW_E96SHqyMvO7w40aqlOoCxSJJgWrcO_juie1EJVh9AGC6cC2pfLa9P-GSOj"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Terminal Logs -->
+<section class="flex flex-col h-64 bg-[#131313] rounded-lg border border-outline-variant/10 overflow-hidden shadow-2xl">
+<div class="bg-[#1C1B1B] px-4 py-2 flex items-center justify-between border-b border-outline-variant/5">
+<div class="flex gap-2 items-center">
+<span class="material-symbols-outlined text-sm text-slate-500" data-icon="terminal">terminal</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Training Logs — active_session_092</span>
+</div>
+<div class="flex gap-4">
+<button class="text-slate-500 hover:text-white"><span class="material-symbols-outlined text-xs" data-icon="download">download</span></button>
+<button class="text-slate-500 hover:text-white"><span class="material-symbols-outlined text-xs" data-icon="close">close</span></button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-4 mono-text text-[11px] leading-relaxed text-slate-300">
+<p class="text-slate-500">[INFO] YOLOv8x training started on device: cuda:0</p>
+<p class="text-slate-500">[INFO] Hyperparameters: lr=0.01, momentum=0.937, weight_decay=0.0005</p>
+<p><span class="text-primary-container font-bold">Epoch 30/50:</span> 100%|██████████| 2500/2500 [00:48&lt;00:00, 52.08it/s]</p>
+<p>             Class     Images  Instances      Box(P          R      mAP50  mAP50-95):</p>
+<p>               all        128        922      0.842      0.791      0.865      0.612</p>
+<p class="text-slate-500">[INFO] Validation complete. Model checkpoint saved to /runs/train/exp4/weights/epoch30.pt</p>
+<p class="text-primary-container font-bold mt-2">Epoch 31/50: 100%|██████████| 2500/2500 [00:49&lt;00:00, 50.12it/s]</p>
+<p>               all        128        922      0.856      0.804      0.878      0.625</p>
+<p class="text-primary-container font-bold mt-2 animate-pulse">Epoch 32/50: 65%|███████   | 1625/2500 [00:32&lt;00:17, 51.45it/s]</p>
+<p class="text-white">Scanning batches... optimizing tensors...</p>
+<p class="text-white">Batch 1626: Box Loss=0.042, Obj Loss=0.015, Cls Loss=0.008</p>
+<p class="text-white">Batch 1627: Box Loss=0.041, Obj Loss=0.014, Cls Loss=0.007</p>
+</div>
+</section>
+</div>
+</main>
+</body></html>

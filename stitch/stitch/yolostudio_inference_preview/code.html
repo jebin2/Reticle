@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-tertiary": "#502400",
+            "on-secondary-container": "#9fb5e7",
+            "inverse-surface": "#e5e2e1",
+            "secondary-container": "#304671",
+            "on-tertiary-fixed-variant": "#723600",
+            "on-primary-fixed-variant": "#004395",
+            "error-container": "#93000a",
+            "surface-container-highest": "#353534",
+            "surface-container-high": "#2a2a2a",
+            "surface-container": "#201f1f",
+            "error": "#ffb4ab",
+            "tertiary-fixed-dim": "#ffb786",
+            "on-secondary-fixed": "#001a42",
+            "surface-tint": "#adc6ff",
+            "outline-variant": "#424754",
+            "tertiary-container": "#df7412",
+            "on-surface-variant": "#c2c6d6",
+            "on-error": "#690005",
+            "on-tertiary-fixed": "#311400",
+            "on-error-container": "#ffdad6",
+            "tertiary": "#ffb786",
+            "on-tertiary-container": "#461f00",
+            "surface": "#131313",
+            "inverse-primary": "#005ac2",
+            "secondary-fixed": "#d8e2ff",
+            "secondary-fixed-dim": "#b1c6f9",
+            "tertiary-fixed": "#ffdcc6",
+            "primary": "#adc6ff",
+            "on-secondary-fixed-variant": "#304671",
+            "inverse-on-surface": "#313030",
+            "background": "#131313",
+            "on-secondary": "#182f59",
+            "primary-container": "#4d8eff",
+            "surface-container-lowest": "#0e0e0e",
+            "surface-dim": "#131313",
+            "on-background": "#e5e2e1",
+            "on-primary-container": "#00285d",
+            "outline": "#8c909f",
+            "on-primary-fixed": "#001a42",
+            "surface-container-low": "#1c1b1b",
+            "surface-bright": "#3a3939",
+            "primary-fixed-dim": "#adc6ff",
+            "surface-variant": "#353534",
+            "on-primary": "#002e6a",
+            "secondary": "#b1c6f9",
+            "on-surface": "#e5e2e1",
+            "primary-fixed": "#d8e2ff"
+          },
+          fontFamily: {
+            "headline": ["Inter"],
+            "body": ["Inter"],
+            "label": ["Inter"],
+            "mono": ["JetBrains Mono"]
+          },
+          borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 20px;
+    }
+    body { font-family: 'Inter', sans-serif; background-color: #131313; color: #e5e2e1; }
+    .mono-text { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-background text-on-surface flex overflow-hidden h-screen">
+<!-- SideNavBar Anchor -->
+<aside class="bg-[#1C1B1B] w-[220px] h-full flex flex-col py-8 flex-shrink-0">
+<div class="px-6 mb-8">
+<div class="text-lg font-bold text-[#ADC6FF] flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+        YOLOStudio
+      </div>
+<div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Kinetic Laboratory</div>
+</div>
+<nav class="flex-grow">
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3">folder_open</span>
+<span class="text-sm font-medium">Projects</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3">edit_note</span>
+<span class="text-sm font-medium">Annotate</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3">model_training</span>
+<span class="text-sm font-medium">Train</span>
+</a>
+<a class="flex items-center text-[#ADC6FF] border-l-4 border-[#ADC6FF] bg-[#2A2A2A] px-4 py-3" href="#">
+<span class="material-symbols-outlined mr-3" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="text-sm font-medium">Inference</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3">ios_share</span>
+<span class="text-sm font-medium">Export</span>
+</a>
+</nav>
+<div class="mt-auto px-4 space-y-1">
+<a class="flex items-center text-slate-500 px-4 py-2 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">help</span>
+<span class="text-xs">Documentation</span>
+</a>
+<a class="flex items-center text-slate-500 px-4 py-2 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">contact_support</span>
+<span class="text-xs">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col min-w-0 bg-background">
+<!-- TopNavBar Anchor -->
+<header class="bg-[#131313] h-16 flex justify-between items-center w-full px-6 flex-shrink-0">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-6">
+<a class="text-slate-400 font-medium hover:bg-[#2A2A2A] px-2 py-1 transition-colors duration-200" href="#">Projects</a>
+<a class="text-slate-400 font-medium hover:bg-[#2A2A2A] px-2 py-1 transition-colors duration-200" href="#">Annotate</a>
+<a class="text-slate-400 font-medium hover:bg-[#2A2A2A] px-2 py-1 transition-colors duration-200" href="#">Train</a>
+<a class="text-[#ADC6FF] border-b-2 border-[#ADC6FF] pb-1 font-bold" href="#">Inference</a>
+<a class="text-slate-400 font-medium hover:bg-[#2A2A2A] px-2 py-1 transition-colors duration-200" href="#">Export</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors cursor-pointer">settings</span>
+</div>
+<div class="relative group">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-primary transition-colors cursor-pointer">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full border-2 border-background"></span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="User profile avatar portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgevRiKLi6eCEyB222tMqPHiAK8fb8GucXj81IK7ukK4CsgPV4WN-P3Wp97uFYdELMfmWhIF8o79-4c5CboTx0D2tySm_7lDi2uhyOu6Md1boSRyzaPv3mP_YxjfHq-iO_AR-j0tU1zSORzNwrCCQK9s-6WMkotY4R-3Al3Ak4Tnl1ClmR3zqpSwof-6gRBayDjYQ5K_JOazGrBzXFWspehwTF-tetFoOaBb49FGQHhmzdRWL-Ygh642nezMsanucncIib6_TCnm5h"/>
+</div>
+</div>
+</header>
+<!-- Inference Workspace -->
+<div class="flex-grow flex p-6 gap-6 overflow-hidden">
+<!-- Left: Inference Area -->
+<div class="flex-grow flex flex-col gap-6 h-full">
+<!-- Top: Drop Zone / Controls -->
+<div class="bg-surface-container-low p-4 flex items-center justify-between rounded-lg">
+<div class="flex items-center gap-4">
+<button class="bg-surface-container-high hover:bg-surface-container-highest text-on-surface px-6 py-2 rounded-lg flex items-center gap-2 transition-all border border-transparent hover:border-outline-variant/20">
+<span class="material-symbols-outlined">upload_file</span>
+<span class="text-sm font-medium">Drag &amp; drop image/video</span>
+</button>
+<div class="h-6 w-px bg-outline-variant/30"></div>
+<div class="flex items-center gap-3">
+<span class="text-sm font-medium text-slate-400">Use Webcam</span>
+<button class="w-10 h-5 bg-surface-container-highest rounded-full relative transition-colors">
+<div class="absolute left-1 top-1 w-3 h-3 bg-slate-500 rounded-full"></div>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="mono-text text-xs text-slate-500">MODEL: YOLOv8-XL</span>
+<span class="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded border border-primary/20 tracking-widest uppercase">Production</span>
+</div>
+</div>
+<!-- Main Viewport -->
+<div class="flex-grow bg-surface-container-lowest rounded-xl relative overflow-hidden group">
+<!-- Sample Inference Image -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="relative w-full h-full">
+<img alt="Forest scene" class="w-full h-full object-cover opacity-60 grayscale-[0.3]" data-alt="Dense green forest with sun rays" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAb-k5W8zXq0AN4tfqX1T2ft9ApZ-6wzoRBwdE8hhx3AojuhdpyCqyQhMDgOsKjkij2IwnwEwIdofRGGPiM5AyWXhbhdTuTqpFewsK_dFYC0uDG79DVqsXYxFm8PIp6_gStsOCoCMEtMQrJCp1c3EL_qsaoC870qPfMbxAo1m_slxVCq58fhIHdESGGmBnEdcGbuHbKKuzdbkQKgLt8XAWF7TF82KbvlpTCUm_wpyrbnQWQXIPhlXLhQdQ_BmzfEyF84bD0BCE_E7ul"/>
+<!-- Bounding Box 1 -->
+<div class="absolute top-[20%] left-[15%] w-[30%] h-[50%] border-2 border-primary/60 rounded-sm">
+<div class="absolute -top-6 left-0 bg-primary px-2 py-0.5 rounded-t-sm flex items-center gap-2">
+<span class="mono-text text-[10px] font-bold text-on-primary">Tree 0.98</span>
+</div>
+</div>
+<!-- Bounding Box 2 -->
+<div class="absolute top-[40%] left-[55%] w-[25%] h-[40%] border-2 border-tertiary/60 rounded-sm">
+<div class="absolute -top-6 left-0 bg-tertiary px-2 py-0.5 rounded-t-sm flex items-center gap-2">
+<span class="mono-text text-[10px] font-bold text-on-tertiary">Foliage 0.84</span>
+</div>
+</div>
+<!-- Bounding Box 3 (Small) -->
+<div class="absolute top-[60%] left-[45%] w-[10%] h-[15%] border-2 border-primary/60 rounded-sm">
+<div class="absolute -top-6 left-0 bg-primary px-2 py-0.5 rounded-t-sm flex items-center gap-2">
+<span class="mono-text text-[10px] font-bold text-on-primary">Bird 0.72</span>
+</div>
+</div>
+<!-- Overlay Grid Scanner -->
+<div class="absolute inset-0 pointer-events-none opacity-5">
+<div class="w-full h-full" style="background-image: radial-gradient(circle, #ffffff 1px, transparent 1px); background-size: 40px 40px;"></div>
+</div>
+</div>
+</div>
+<!-- Bottom Floating Tools -->
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-surface-container-highest/80 backdrop-blur-md px-4 py-2 rounded-full border border-outline-variant/20">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-full transition-colors"><span class="material-symbols-outlined">zoom_in</span></button>
+<button class="p-2 text-slate-300 hover:bg-white/10 rounded-full transition-colors"><span class="material-symbols-outlined">zoom_out</span></button>
+<div class="h-4 w-px bg-outline-variant/30 mx-1"></div>
+<button class="p-2 text-slate-300 hover:bg-white/10 rounded-full transition-colors"><span class="material-symbols-outlined">screenshot</span></button>
+<button class="p-2 text-slate-300 hover:bg-white/10 rounded-full transition-colors"><span class="material-symbols-outlined">fullscreen</span></button>
+</div>
+</div>
+</div>
+<!-- Right Panel: Controls & Analysis -->
+<aside class="w-80 flex flex-col gap-6 h-full overflow-y-auto pr-2 custom-scrollbar">
+<!-- Threshold Slider -->
+<section class="bg-surface-container-low p-5 rounded-xl">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">Confidence Threshold</h3>
+<span class="mono-text text-sm font-medium text-primary">0.50</span>
+</div>
+<div class="relative w-full h-1.5 bg-surface-container-highest rounded-full">
+<div class="absolute top-0 left-0 w-1/2 h-full bg-primary rounded-full"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-on-surface rounded-full shadow-xl cursor-pointer"></div>
+</div>
+<div class="flex justify-between mt-3 text-[10px] mono-text text-slate-600">
+<span>0.0</span>
+<span>1.0</span>
+</div>
+</section>
+<!-- Detected Objects List -->
+<section class="flex-grow flex flex-col min-h-0">
+<h3 class="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 px-1">Detected Objects (3)</h3>
+<div class="flex-grow space-y-2 overflow-y-auto">
+<div class="bg-surface-container-low p-4 rounded-xl flex items-center justify-between group hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div>
+<div class="text-sm font-bold text-on-surface">Tree</div>
+<div class="text-[10px] mono-text text-slate-500">ID: 402 • Area: 12.4%</div>
+</div>
+</div>
+<div class="mono-text text-sm text-primary font-medium">0.98</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl flex items-center justify-between group hover:bg-surface-container-high transition-colors border-l-2 border-tertiary">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<div>
+<div class="text-sm font-bold text-on-surface">Foliage</div>
+<div class="text-[10px] mono-text text-slate-500">ID: 405 • Area: 8.1%</div>
+</div>
+</div>
+<div class="mono-text text-sm text-tertiary font-medium">0.84</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl flex items-center justify-between group hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div>
+<div class="text-sm font-bold text-on-surface">Bird</div>
+<div class="text-[10px] mono-text text-slate-500">ID: 409 • Area: 0.2%</div>
+</div>
+</div>
+<div class="mono-text text-sm text-primary font-medium">0.72</div>
+</div>
+</div>
+</section>
+<!-- Classes to Detect -->
+<section class="bg-surface-container-low p-5 rounded-xl">
+<h3 class="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">Classes to Filter</h3>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 bg-primary text-on-primary text-[10px] font-bold rounded-full cursor-pointer">Person</span>
+<span class="px-3 py-1 bg-surface-container-highest text-slate-400 text-[10px] font-bold rounded-full cursor-pointer hover:bg-slate-700">Car</span>
+<span class="px-3 py-1 bg-primary text-on-primary text-[10px] font-bold rounded-full cursor-pointer">Tree</span>
+<span class="px-3 py-1 bg-surface-container-highest text-slate-400 text-[10px] font-bold rounded-full cursor-pointer hover:bg-slate-700">Animal</span>
+<span class="px-3 py-1 bg-primary text-on-primary text-[10px] font-bold rounded-full cursor-pointer">Bird</span>
+</div>
+</section>
+</aside>
+</div>
+<!-- Bottom Status Bar -->
+<footer class="h-10 bg-surface-container-low flex items-center justify-between px-6 border-t border-outline-variant/10 flex-shrink-0">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">System Ready</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1 bg-surface-container-highest rounded text-[10px] mono-text text-primary">
+<span class="material-symbols-outlined text-[14px]">memory</span>
+          GPU: WebGPU
+        </div>
+<div class="flex items-center gap-2 text-[10px] mono-text text-slate-400">
+<span class="material-symbols-outlined text-[14px]">timer</span>
+          Inference Time: <span class="text-on-surface font-bold">12.4ms</span>
+</div>
+</div>
+<div class="flex items-center gap-4 text-[10px] mono-text text-slate-500">
+<span>FPS: 60.0</span>
+<div class="h-3 w-px bg-outline-variant/30"></div>
+<span>Resolution: 1920x1080</span>
+</div>
+</footer>
+</main>
+</body></html>

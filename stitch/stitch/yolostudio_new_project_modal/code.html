@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>YOLOStudio — New Project</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary": "#502400",
+                        "on-secondary-container": "#9fb5e7",
+                        "inverse-surface": "#e5e2e1",
+                        "secondary-container": "#304671",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-primary-fixed-variant": "#004395",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-container": "#201f1f",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-secondary-fixed": "#001a42",
+                        "surface-tint": "#adc6ff",
+                        "outline-variant": "#424754",
+                        "tertiary-container": "#df7412",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#311400",
+                        "on-error-container": "#ffdad6",
+                        "tertiary": "#ffb786",
+                        "on-tertiary-container": "#461f00",
+                        "surface": "#131313",
+                        "inverse-primary": "#005ac2",
+                        "secondary-fixed": "#d8e2ff",
+                        "secondary-fixed-dim": "#b1c6f9",
+                        "tertiary-fixed": "#ffdcc6",
+                        "primary": "#adc6ff",
+                        "on-secondary-fixed-variant": "#304671",
+                        "inverse-on-surface": "#313030",
+                        "background": "#131313",
+                        "on-secondary": "#182f59",
+                        "primary-container": "#4d8eff",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-dim": "#131313",
+                        "on-background": "#e5e2e1",
+                        "on-primary-container": "#00285d",
+                        "outline": "#8c909f",
+                        "on-primary-fixed": "#001a42",
+                        "surface-container-low": "#1c1b1b",
+                        "surface-bright": "#3a3939",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-variant": "#353534",
+                        "on-primary": "#002e6a",
+                        "secondary": "#b1c6f9",
+                        "on-surface": "#e5e2e1",
+                        "primary-fixed": "#d8e2ff"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono-text { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen overflow-hidden">
+<!-- Background Dashboard (Dimmed/Blurred) -->
+<div class="fixed inset-0 z-0 flex opacity-20 grayscale blur-sm">
+<!-- SideNavBar Mock -->
+<aside class="w-[220px] bg-[#1C1B1B] h-full py-8 flex flex-col">
+<div class="px-6 mb-10">
+<div class="text-lg font-bold text-[#ADC6FF]">YOLOStudio</div>
+<div class="text-[10px] uppercase tracking-widest text-slate-500">Kinetic Laboratory</div>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="flex items-center text-[#ADC6FF] border-l-4 border-[#ADC6FF] bg-[#2A2A2A] px-4 py-3">
+<span class="material-symbols-outlined mr-3">folder_open</span>
+<span class="text-sm">Projects</span>
+</div>
+<div class="flex items-center text-slate-400 px-4 py-3">
+<span class="material-symbols-outlined mr-3">edit_note</span>
+<span class="text-sm">Annotate</span>
+</div>
+</nav>
+</aside>
+<!-- Main Content Mock -->
+<main class="flex-1 p-12">
+<div class="grid grid-cols-3 gap-8">
+<div class="aspect-square bg-surface-container-high rounded-xl"></div>
+<div class="aspect-square bg-surface-container-high rounded-xl"></div>
+<div class="aspect-square bg-surface-container-high rounded-xl"></div>
+<div class="col-span-2 h-64 bg-surface-container-high rounded-xl"></div>
+<div class="h-64 bg-surface-container-high rounded-xl"></div>
+</div>
+</main>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 bg-black/80 z-40 backdrop-blur-[2px] flex items-center justify-center p-6">
+<!-- New Project Modal -->
+<div class="w-full max-w-[500px] bg-surface-container-low border border-surface-container-high rounded-xl shadow-2xl overflow-hidden">
+<!-- Modal Header -->
+<div class="px-8 pt-8 pb-4">
+<h2 class="text-xl font-bold tracking-tight text-on-surface">Create New Project</h2>
+<p class="text-sm text-on-surface-variant mt-1">Initialize a new computer vision workspace.</p>
+</div>
+<!-- Modal Body -->
+<div class="px-8 py-4 space-y-6">
+<!-- Project Name Field -->
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-slate-500">Project Name</label>
+<input class="w-full h-12 px-4 bg-surface-container-highest border-none rounded-lg text-on-surface placeholder:text-slate-600 focus:ring-1 focus:ring-primary/40 transition-all outline-none" placeholder="e.g. Traffic_Surveillance_v1" type="text"/>
+</div>
+<!-- Base Model Dropdown -->
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-slate-500">Base Model</label>
+<div class="relative">
+<select class="mono-text w-full h-12 px-4 bg-surface-container-highest border-none rounded-lg text-primary appearance-none focus:ring-1 focus:ring-primary/40 outline-none cursor-pointer">
+<option>YOLOv8n</option>
+<option>YOLOv8s</option>
+<option>YOLOv11n</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">expand_more</span>
+</div>
+</div>
+<!-- Classes Tag Input -->
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-slate-500">Classes</label>
+<div class="min-h-[100px] p-3 bg-surface-container-highest rounded-lg flex flex-wrap gap-2 content-start">
+<!-- Tag: Person -->
+<div class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-container text-on-primary-container rounded-full text-xs font-semibold">
+<span>person</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-white transition-colors">close</span>
+</div>
+<!-- Tag: Car -->
+<div class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-container text-on-primary-container rounded-full text-xs font-semibold">
+<span>car</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-white transition-colors">close</span>
+</div>
+<!-- Tag: License Plate -->
+<div class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-container text-on-primary-container rounded-full text-xs font-semibold">
+<span>license_plate</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-white transition-colors">close</span>
+</div>
+<!-- Input for tags -->
+<input class="flex-1 bg-transparent border-none text-xs text-on-surface focus:ring-0 min-w-[100px] py-1.5" placeholder="Type to add..." type="text"/>
+</div>
+<p class="text-[10px] text-slate-500 italic px-1">Press enter to separate labels.</p>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="px-8 py-8 bg-surface-container-low flex items-center justify-end gap-4">
+<button class="px-6 py-2.5 text-sm font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-all active:scale-95">
+                    Cancel
+                </button>
+<button class="px-6 py-2.5 text-sm font-bold bg-primary text-on-primary rounded-lg transition-all active:scale-95 shadow-lg shadow-primary/10">
+                    Create Project
+                </button>
+</div>
+</div>
+</div>
+</body></html>

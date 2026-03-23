@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Annotate | YOLOStudio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary": "#502400",
+                        "on-secondary-container": "#9fb5e7",
+                        "inverse-surface": "#e5e2e1",
+                        "secondary-container": "#304671",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-primary-fixed-variant": "#004395",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-container": "#201f1f",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-secondary-fixed": "#001a42",
+                        "surface-tint": "#adc6ff",
+                        "outline-variant": "#424754",
+                        "tertiary-container": "#df7412",
+                        "on-surface-variant": "#c2c6d6",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#311400",
+                        "on-error-container": "#ffdad6",
+                        "tertiary": "#ffb786",
+                        "on-tertiary-container": "#461f00",
+                        "surface": "#131313",
+                        "inverse-primary": "#005ac2",
+                        "secondary-fixed": "#d8e2ff",
+                        "secondary-fixed-dim": "#b1c6f9",
+                        "tertiary-fixed": "#ffdcc6",
+                        "primary": "#adc6ff",
+                        "on-secondary-fixed-variant": "#304671",
+                        "inverse-on-surface": "#313030",
+                        "background": "#131313",
+                        "on-secondary": "#182f59",
+                        "primary-container": "#4d8eff",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-dim": "#131313",
+                        "on-background": "#e5e2e1",
+                        "on-primary-container": "#00285d",
+                        "outline": "#8c909f",
+                        "on-primary-fixed": "#001a42",
+                        "surface-container-low": "#1c1b1b",
+                        "surface-bright": "#3a3939",
+                        "primary-fixed-dim": "#adc6ff",
+                        "surface-variant": "#353534",
+                        "on-primary": "#002e6a",
+                        "secondary": "#b1c6f9",
+                        "on-surface": "#e5e2e1",
+                        "primary-fixed": "#d8e2ff"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+        }
+        .canvas-grid {
+            background-image: radial-gradient(circle, #2a2a2a 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="overflow-hidden flex flex-col h-screen">
+<!-- TopNavBar -->
+<header class="bg-[#131313] text-[#ADC6FF] flex justify-between items-center w-full px-6 h-16 shrink-0 z-50">
+<div class="flex items-center gap-6">
+<span class="text-xl font-black text-[#ADC6FF] tracking-tighter">YOLOStudio</span>
+<div class="flex items-center gap-4 text-slate-400 font-medium text-sm">
+<span class="hover:bg-[#2A2A2A] px-2 py-1 rounded transition-colors duration-200 cursor-pointer">Projects</span>
+<span class="text-[#ADC6FF] border-b-2 border-[#ADC6FF] pb-1">Annotate</span>
+<span class="hover:bg-[#2A2A2A] px-2 py-1 rounded transition-colors duration-200 cursor-pointer">Train</span>
+<span class="hover:bg-[#2A2A2A] px-2 py-1 rounded transition-colors duration-200 cursor-pointer">Inference</span>
+<span class="hover:bg-[#2A2A2A] px-2 py-1 rounded transition-colors duration-200 cursor-pointer">Export</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-[#1C1B1B] rounded-lg">
+<span class="material-symbols-outlined text-sm">search</span>
+<input class="bg-transparent border-none text-xs focus:ring-0 w-32 placeholder-slate-600" placeholder="Search..." type="text"/>
+</div>
+<span class="material-symbols-outlined cursor-pointer hover:text-white transition-colors">settings</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-white transition-colors">notifications</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="User profile portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNqrVGNG8C9MnSddwTm4H7FP13X1uPQvnfZjEoYpjMxB1qvRtJNXF593mdmseKDdppU0XntTssgIjr25km10fLibbiJwk1z39q_QgPfzJgrhdoercZM9rQVUK4XNGKru9yVO39WHomLr7LaS5a6OV9ByIdep0Rm3tkuHdmMtuKDsSM5hU63US6vorvt2eCCo5r_vDQKTUn03ur65J4CqKmbvMOkG1ih1Ww_sq85tm4F9Luj8k61399KF5iDiEFlyA-w5Ddn8Thn9KM"/>
+</div>
+</div>
+</header>
+<!-- Sub Header Control Bar -->
+<div class="h-12 bg-[#1C1B1B] border-t border-[#2A2A2A] flex items-center justify-between px-6 shrink-0">
+<div class="flex items-center gap-4">
+<nav class="flex items-center gap-2 text-xs font-mono">
+<span class="text-slate-500">PROJECTS</span>
+<span class="text-slate-700">/</span>
+<span class="text-primary">AUTONOMOUS_DRIVE_V4</span>
+</nav>
+<div class="h-4 w-px bg-slate-800"></div>
+<div class="flex items-center gap-3 text-xs font-mono text-slate-400">
+<span class="bg-surface-container-lowest px-2 py-0.5 rounded border border-white/5 text-primary">12 / 48</span>
+<span class="flex items-center gap-1"><kbd class="bg-[#2A2A2A] px-1 rounded text-[10px] text-white">A</kbd> <kbd class="bg-[#2A2A2A] px-1 rounded text-[10px] text-white">D</kbd> TO NAVIGATE</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-4 py-1.5 bg-primary text-on-primary text-xs font-bold rounded-lg hover:brightness-110 transition-all">
+<span class="material-symbols-outlined text-sm">save</span>
+                COMMIT ANNOTATIONS
+            </button>
+</div>
+</div>
+<!-- Main Workspace -->
+<main class="flex flex-1 overflow-hidden">
+<!-- Left Panel: Dataset Explorer -->
+<aside class="w-64 bg-[#1C1B1B] flex flex-col shrink-0 border-r border-[#2A2A2A]">
+<div class="p-4 flex items-center justify-between border-b border-[#2A2A2A]/50">
+<h3 class="text-[10px] uppercase tracking-widest font-bold text-slate-500">Dataset Images</h3>
+<span class="material-symbols-outlined text-sm text-slate-500">filter_list</span>
+</div>
+<div class="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+<!-- Annotated Item -->
+<div class="relative group cursor-pointer border-2 border-primary/40 rounded-lg overflow-hidden ring-4 ring-primary/5">
+<img class="w-full h-24 object-cover" data-alt="Car driving on forest road" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUcBddAorxV90JvLbCpu4U5MvszHe9w-w6SmEqJkU0uhPm22YeWK2irODVY3S0FOpnwcM0wRTMIhon9PweDeEacFWp8M5HGt1OTwd8JOsZRDe5-srV_vl5B9AP7fVHVA9mhFlonwDGvR6zzl_cyc5I8H8baqgCt7zX9Ne5mGP-Bw2ARivvNf2CtsfREvSmfKDiSAdT-MioYguoVt798t5YiRejIWzAyGgEH2pTxE62MX5gfUljtQjurdDI903knyEVXrPbs_Nzc7C_"/>
+<div class="absolute top-2 right-2 bg-primary/90 text-on-primary text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xl">3 BOXES</div>
+<div class="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-sm p-1.5 text-[10px] font-mono text-white truncate">IMG_0012.JPG</div>
+</div>
+<!-- Unannotated Item (Dimmed) -->
+<div class="relative group cursor-pointer opacity-40 hover:opacity-100 transition-opacity rounded-lg overflow-hidden">
+<img class="w-full h-24 object-cover grayscale" data-alt="Classic car in street" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpGbFo1raHGbq4wBqUPpipATTZktpHVY3mkOKmpxAnBr_qWAfB6MOX7Lpu52FUQjlb0Pd0FxvpXHMG3OA1g4ZGfIWaSPSSZZNDAhIiZ5FT3LLvMD3uPp9UnrwEroKlPDINRR7joUm9uOTtd8vIxO6oNzHLjP4E9eJ7f5TDeefBq8zQofeFgiRvH21oWE3pHWG3cJoMD-rklVNdMb-ywhhzd9S2TBPdI4zVq5YkQ3qp0gso2Ptzxlg42pYPTIiH7l6JfheUNN255V9G"/>
+<div class="absolute top-2 right-2 bg-slate-800 text-slate-400 text-[9px] font-bold px-1.5 py-0.5 rounded">0 BOXES</div>
+<div class="absolute bottom-0 inset-x-0 bg-black/40 backdrop-blur-sm p-1.5 text-[10px] font-mono text-slate-300 truncate">IMG_0013.JPG</div>
+</div>
+<!-- Annotated Item -->
+<div class="relative group cursor-pointer rounded-lg overflow-hidden border border-white/5">
+<img class="w-full h-24 object-cover" data-alt="Sports car top view" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvnBHWLYObdYtPMGa1052dKbnMNp6_MAzuZqaXvCKpDrifI2mUD1rVj4v152aHhJ812msWGGcMLSbJoJzaeTIqd2isHXK1bg1sQvexQb7rqaFSzLKmpFkIRSnRstTppJGTDporEV637PrDFZOsv8TPHawhqwHlfqhyhMyF6Ik7uaqfvamTZ9lHeYOXSAXTnNOMujB7MDh76o0ZAV97jZXptqBOmvhfIH9vEvlMh3oy3fXsJbms-9Fd52EbaHc6D3HMjDChJcA55iCY"/>
+<div class="absolute top-2 right-2 bg-primary/90 text-on-primary text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xl">1 BOX</div>
+<div class="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-sm p-1.5 text-[10px] font-mono text-white truncate">IMG_0014.JPG</div>
+</div>
+<!-- Unannotated -->
+<div class="relative group cursor-pointer opacity-40 hover:opacity-100 transition-opacity rounded-lg overflow-hidden">
+<img class="w-full h-24 object-cover grayscale" data-alt="Modern sedan in city" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5y7UvDv2rElAwtNkIxxDigkAiX322C8Hqag7oVUGZm2CqwDody11olJYewVVTeQ1BFp_RHWxVHtfYrNCBo0SY1gCD-E1UduJufEbUOLX_4TzEUyTX6JK84-zJlNCdPSsmTfH1lzUw0CenrC-H4PetFCv51Nz6jSIWqE-IfNkzevDnn8lekBtJ4mDbAe0fkxI7LgUAP9TsEypqCsZb1s8OyOL7o0KI3vyLgl6zB3I9LFImC6QgExwlh5e6Z5TppXqq_Lo1V8oEOvHv"/>
+<div class="absolute top-2 right-2 bg-slate-800 text-slate-400 text-[9px] font-bold px-1.5 py-0.5 rounded">0 BOXES</div>
+<div class="absolute bottom-0 inset-x-0 bg-black/40 backdrop-blur-sm p-1.5 text-[10px] font-mono text-slate-300 truncate">IMG_0015.JPG</div>
+</div>
+</div>
+</aside>
+<!-- Center: Canvas Area -->
+<section class="flex-1 bg-surface-container-lowest canvas-grid flex items-center justify-center relative group">
+<!-- Annotation Tools Overlay -->
+<div class="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-[#1C1B1B]/80 backdrop-blur-md p-2 rounded-xl border border-white/5 shadow-2xl z-20">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-on-primary">
+<span class="material-symbols-outlined">crop_free</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-slate-400">
+<span class="material-symbols-outlined">near_me</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-slate-400">
+<span class="material-symbols-outlined">zoom_in</span>
+</button>
+<div class="h-px w-6 bg-slate-800 self-center my-1"></div>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-slate-400">
+<span class="material-symbols-outlined text-error">delete</span>
+</button>
+</div>
+<!-- Main Canvas Content -->
+<div class="relative inline-block shadow-[0_0_100px_rgba(0,0,0,0.8)]">
+<img class="max-h-[768px] block rounded-sm" data-alt="High res shot of car on asphalt" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4N5x-jkHNvKTgTbPfuxhmEI4EuAGxn02eCpoHKqcnuBnrlfinJRI28YndSck16eBpBfje_u0Eof6BmEHBEUuBX2xSBd8fSvrBsEW-K7-Lb1p5NjTI55OUTmVW3R-keJWgzi_vyc0xAhCYF7lfCqwl4qEGgPThJXrw0A8zqV-YeSDmisefmr9k_cP2V9uU98fMVd9zDbL5OBltXIaad17Vx4-m8_nQTNnN4VL1HemZrOYJirWB_u-OgX5eYoZhzArONKBYvO81EaiE"/>
+<!-- Bounding Box 1 (Active) -->
+<div class="absolute top-[35%] left-[20%] w-[25%] h-[40%] border-[1.5px] border-primary bg-primary/20 flex flex-col items-start cursor-pointer transition-all">
+<div class="bg-primary text-on-primary px-1.5 py-0.5 text-[9px] font-bold font-mono tracking-tighter -mt-[18px] -ml-[1px]">CAR_SEDAN (0.98)</div>
+<!-- Resizer handles -->
+<div class="absolute -top-1 -left-1 w-2 h-2 bg-white rounded-full"></div>
+<div class="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full"></div>
+<div class="absolute -bottom-1 -left-1 w-2 h-2 bg-white rounded-full"></div>
+<div class="absolute -bottom-1 -right-1 w-2 h-2 bg-white rounded-full"></div>
+</div>
+<!-- Bounding Box 2 (Secondary) -->
+<div class="absolute top-[50%] left-[55%] w-[10%] h-[15%] border border-emerald-400/60 bg-emerald-400/10 flex flex-col items-start cursor-pointer hover:bg-emerald-400/20 transition-all">
+<div class="bg-emerald-400 text-black px-1 py-0.5 text-[8px] font-bold font-mono -mt-[16px]">TRAFFIC_CONE</div>
+</div>
+<!-- Bounding Box 3 -->
+<div class="absolute top-[42%] left-[70%] w-[15%] h-[22%] border border-primary/40 bg-primary/10 flex flex-col items-start cursor-pointer hover:bg-primary/20 transition-all">
+<div class="bg-primary/40 text-white px-1 py-0.5 text-[8px] font-bold font-mono -mt-[16px]">CAR_SEDAN</div>
+</div>
+<!-- Crosshair (Invisible helper) -->
+<div class="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+<div class="absolute h-full w-px bg-white/20 left-1/2"></div>
+<div class="absolute w-full h-px bg-white/20 top-1/2"></div>
+</div>
+</div>
+<!-- Canvas Zoom Indicator -->
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-surface-container-high/80 backdrop-blur p-2 px-4 rounded-full text-[10px] font-mono flex items-center gap-4 text-slate-300 border border-white/5">
+<span>ZOOM: 100%</span>
+<span class="text-slate-600">|</span>
+<span>X: 542 Y: 891</span>
+<span class="text-slate-600">|</span>
+<span>SRGB: 122, 128, 114</span>
+</div>
+</section>
+<!-- Right Panel: Metadata & Controls -->
+<aside class="w-72 bg-[#1C1B1B] flex flex-col shrink-0 border-l border-[#2A2A2A]">
+<!-- Classes Section -->
+<div class="p-4 border-b border-[#2A2A2A]">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-[10px] uppercase tracking-widest font-bold text-slate-500">Classes</h3>
+<button class="p-1 hover:bg-[#2A2A2A] rounded transition-colors">
+<span class="material-symbols-outlined text-sm text-primary">add</span>
+</button>
+</div>
+<div class="space-y-1.5">
+<div class="flex items-center justify-between p-2 bg-[#2A2A2A] rounded border-l-4 border-primary group cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-primary shadow-[0_0_8px_rgba(173,198,255,0.4)]"></span>
+<span class="text-xs font-medium text-white">CAR_SEDAN</span>
+</div>
+<span class="text-[10px] font-mono text-slate-500">KBD: 1</span>
+</div>
+<div class="flex items-center justify-between p-2 hover:bg-surface-container-high/50 rounded transition-colors group cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+<span class="text-xs font-medium text-slate-400 group-hover:text-slate-200">TRAFFIC_CONE</span>
+</div>
+<span class="text-[10px] font-mono text-slate-600">KBD: 2</span>
+</div>
+<div class="flex items-center justify-between p-2 hover:bg-surface-container-high/50 rounded transition-colors group cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-amber-400"></span>
+<span class="text-xs font-medium text-slate-400 group-hover:text-slate-200">PEDESTRIAN</span>
+</div>
+<span class="text-[10px] font-mono text-slate-600">KBD: 3</span>
+</div>
+<div class="flex items-center justify-between p-2 hover:bg-surface-container-high/50 rounded transition-colors group cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-rose-400"></span>
+<span class="text-xs font-medium text-slate-400 group-hover:text-slate-200">CYCLIST</span>
+</div>
+<span class="text-[10px] font-mono text-slate-600">KBD: 4</span>
+</div>
+</div>
+</div>
+<!-- Current Image Annotations -->
+<div class="flex-1 flex flex-col overflow-hidden">
+<div class="p-4 flex items-center justify-between">
+<h3 class="text-[10px] uppercase tracking-widest font-bold text-slate-500">Current Annotations</h3>
+<span class="text-[10px] font-mono text-slate-600">3 TOTAL</span>
+</div>
+<div class="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
+<!-- Annotation List Item -->
+<div class="flex items-center justify-between p-2.5 bg-[#2A2A2A] rounded group ring-1 ring-white/5">
+<div class="flex flex-col">
+<span class="text-[11px] font-bold text-white">CAR_SEDAN</span>
+<span class="text-[9px] font-mono text-slate-500">XYWH: [240, 312, 110, 85]</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-error/20 rounded transition-all">
+<span class="material-symbols-outlined text-sm text-error">delete</span>
+</button>
+</div>
+<!-- Annotation List Item -->
+<div class="flex items-center justify-between p-2.5 bg-surface-container rounded group border border-transparent hover:border-white/5 transition-all">
+<div class="flex flex-col">
+<span class="text-[11px] font-bold text-slate-400">TRAFFIC_CONE</span>
+<span class="text-[9px] font-mono text-slate-500">XYWH: [512, 440, 24, 48]</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-error/20 rounded transition-all">
+<span class="material-symbols-outlined text-sm text-error">delete</span>
+</button>
+</div>
+<!-- Annotation List Item -->
+<div class="flex items-center justify-between p-2.5 bg-surface-container rounded group border border-transparent hover:border-white/5 transition-all">
+<div class="flex flex-col">
+<span class="text-[11px] font-bold text-slate-400">CAR_SEDAN</span>
+<span class="text-[9px] font-mono text-slate-500">XYWH: [610, 305, 88, 62]</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-error/20 rounded transition-all">
+<span class="material-symbols-outlined text-sm text-error">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Bottom Panel Actions -->
+<div class="p-4 bg-surface-container-lowest flex flex-col gap-3">
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-high py-2 rounded text-[10px] font-bold hover:text-white transition-colors">SKIP IMAGE</button>
+<button class="flex-1 bg-surface-container-high py-2 rounded text-[10px] font-bold hover:text-white transition-colors">FLAG IMAGE</button>
+</div>
+<div class="text-[9px] font-mono text-slate-600 text-center uppercase tracking-tighter">
+                    Auto-saved 2 minutes ago
+                </div>
+</div>
+</aside>
+</main>
+<!-- SideNavBar (Hidden/Compact State as per JSON but this is a dedicated focus screen) -->
+<!-- Not rendering full SideNav to prioritize annotation canvas space as per UX hierarchy rules for transactional/task-focused screens -->
+</body></html>

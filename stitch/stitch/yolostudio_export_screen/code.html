@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>YOLOStudio — Export</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "on-tertiary": "#502400",
+                "on-secondary-container": "#9fb5e7",
+                "inverse-surface": "#e5e2e1",
+                "secondary-container": "#304671",
+                "on-tertiary-fixed-variant": "#723600",
+                "on-primary-fixed-variant": "#004395",
+                "error-container": "#93000a",
+                "surface-container-highest": "#353534",
+                "surface-container-high": "#2a2a2a",
+                "surface-container": "#201f1f",
+                "error": "#ffb4ab",
+                "tertiary-fixed-dim": "#ffb786",
+                "on-secondary-fixed": "#001a42",
+                "surface-tint": "#adc6ff",
+                "outline-variant": "#424754",
+                "tertiary-container": "#df7412",
+                "on-surface-variant": "#c2c6d6",
+                "on-error": "#690005",
+                "on-tertiary-fixed": "#311400",
+                "on-error-container": "#ffdad6",
+                "tertiary": "#ffb786",
+                "on-tertiary-container": "#461f00",
+                "surface": "#131313",
+                "inverse-primary": "#005ac2",
+                "secondary-fixed": "#d8e2ff",
+                "secondary-fixed-dim": "#b1c6f9",
+                "tertiary-fixed": "#ffdcc6",
+                "primary": "#adc6ff",
+                "on-secondary-fixed-variant": "#304671",
+                "inverse-on-surface": "#313030",
+                "background": "#131313",
+                "on-background": "#e5e2e1",
+                "on-primary-container": "#00285d",
+                "outline": "#8c909f",
+                "on-primary-fixed": "#001a42",
+                "surface-container-low": "#1c1b1b",
+                "surface-bright": "#3a3939",
+                "primary-fixed-dim": "#adc6ff",
+                "surface-variant": "#353534",
+                "on-primary": "#002e6a",
+                "secondary": "#b1c6f9",
+                "on-surface": "#e5e2e1",
+                "primary-fixed": "#d8e2ff"
+              },
+              fontFamily: {
+                "headline": ["Inter"],
+                "body": ["Inter"],
+                "label": ["Inter"],
+                "mono": ["JetBrains Mono"]
+              },
+              borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+            },
+          },
+        }
+      </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary selection:text-on-primary min-h-screen flex overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="hidden md:flex flex-col h-full w-[220px] bg-[#1C1B1B] py-8 fixed left-0 top-0 z-50">
+<div class="px-6 mb-10">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-xl" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<div>
+<h1 class="text-lg font-bold text-[#ADC6FF]">YOLOStudio</h1>
+<p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Kinetic Laboratory</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Navigation Items Mapping -->
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="folder_open">folder_open</span>
+<span class="text-sm font-medium">Projects</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="edit_note">edit_note</span>
+<span class="text-sm font-medium">Annotate</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="model_training">model_training</span>
+<span class="text-sm font-medium">Train</span>
+</a>
+<a class="flex items-center text-slate-400 px-4 py-3 hover:bg-[#2A2A2A] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="Psychology">psychology</span>
+<span class="text-sm font-medium">Inference</span>
+</a>
+<!-- Active State for Export -->
+<a class="flex items-center text-[#ADC6FF] border-l-4 border-[#ADC6FF] bg-[#2A2A2A] px-4 py-3" href="#">
+<span class="material-symbols-outlined mr-3 text-lg" data-icon="ios_share">ios_share</span>
+<span class="text-sm font-medium">Export</span>
+</a>
+</nav>
+<div class="px-4 mt-auto space-y-1">
+<a class="flex items-center text-slate-500 px-4 py-2 hover:text-slate-300 transition-colors text-xs" href="#">
+<span class="material-symbols-outlined mr-3 text-base" data-icon="help">help</span>
+<span>Documentation</span>
+</a>
+<a class="flex items-center text-slate-500 px-4 py-2 hover:text-slate-300 transition-colors text-xs" href="#">
+<span class="material-symbols-outlined mr-3 text-base" data-icon="contact_support">contact_support</span>
+<span>Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen relative">
+<!-- TopAppBar (Shared Component) -->
+<header class="bg-[#131313] flex justify-between items-center w-full px-6 h-16 sticky top-0 z-40">
+<div class="flex items-center gap-6">
+<h2 class="text-xl font-black text-[#ADC6FF] tracking-tighter">EXPORT</h2>
+<nav class="hidden lg:flex items-center gap-6">
+<a class="text-slate-400 font-medium hover:text-primary transition-colors text-sm" href="#">Projects</a>
+<a class="text-slate-400 font-medium hover:text-primary transition-colors text-sm" href="#">Annotate</a>
+<a class="text-slate-400 font-medium hover:text-primary transition-colors text-sm" href="#">Train</a>
+<a class="text-slate-400 font-medium hover:text-primary transition-colors text-sm" href="#">Inference</a>
+<a class="text-[#ADC6FF] border-b-2 border-[#ADC6FF] pb-1 font-medium text-sm" href="#">Export</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:bg-[#2A2A2A] rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-[#2A2A2A] rounded-full transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden ml-2">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Professional user avatar portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxaoaADv3L362s-SS3mB4Gqf-BYw1dGMCMxj9FQzc9R8iycFmBMPgab2JGJkMvrTJXmAu2VplU58b-4W0Y-KjJKJl-ev6T4ucLeweLyrw5oAhxX-ujQ94b-smbYVw0mMh4iGwehfQieHxJnlFeL9Gs7hM7Ld6XTbP8tW7vaXU6bWuWQY3jXbJuVJjSDVOhorHUwhsng8qbpPhk7vfdVmN8XubwluMJiUuJLvR9Y9SnKHK4vQ6oMlgDaJK5kOsRZ-llAKPfBJtbeNgi"/>
+</div>
+</div>
+</header>
+<!-- Canvas Area -->
+<section class="flex-1 overflow-y-auto bg-[#131313] p-8 md:p-12 lg:p-16 flex flex-col items-center">
+<div class="max-w-4xl w-full">
+<!-- Header Section -->
+<div class="mb-12 text-center md:text-left">
+<p class="text-primary font-mono text-xs tracking-widest uppercase mb-2">Ready for Deployment</p>
+<h3 class="text-3xl md:text-4xl font-bold tracking-tight text-on-surface mb-4">Export Model Artifacts</h3>
+<p class="text-on-surface-variant max-w-2xl text-lg">Select the optimal format for your hardware environment. Our kinetic laboratory optimizes weights during the quantization process.</p>
+</div>
+<!-- Export Grid/List -->
+<div class="space-y-4">
+<!-- Format Row: PyTorch -->
+<div class="group bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 p-6 flex flex-col md:flex-row md:items-center justify-between rounded-none">
+<div class="flex items-start gap-5">
+<div class="w-12 h-12 bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="folder_zip">folder_zip</span>
+</div>
+<div>
+<h4 class="text-lg font-bold text-on-surface">PyTorch (.pt)</h4>
+<p class="text-on-surface-variant text-sm mt-1">Full precision floating point weights. Best for further fine-tuning.</p>
+<div class="mt-2 inline-flex items-center gap-2 px-2 py-1 bg-surface-container-highest rounded-sm">
+<span class="material-symbols-outlined text-xs text-on-surface-variant" data-icon="database">database</span>
+<span class="font-mono text-[11px] text-on-surface-variant">14.2 MB</span>
+</div>
+</div>
+</div>
+<div class="mt-6 md:mt-0 flex items-center gap-4">
+<button class="px-6 py-2 bg-surface-container-highest text-primary font-semibold text-sm hover:bg-primary hover:text-on-primary transition-all duration-200">
+                                Export
+                            </button>
+</div>
+</div>
+<!-- Format Row: ONNX (Success State) -->
+<div class="group bg-surface-container-high p-6 flex flex-col md:flex-row md:items-center justify-between rounded-none">
+<div class="flex items-start gap-5">
+<div class="w-12 h-12 bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="mediation">mediation</span>
+</div>
+<div>
+<h4 class="text-lg font-bold text-on-surface">ONNX (.onnx)</h4>
+<p class="text-on-surface-variant text-sm mt-1">Universal interoperability format. Highly optimized for CPU inference.</p>
+<div class="mt-2 inline-flex items-center gap-2 px-2 py-1 bg-surface-container-highest rounded-sm">
+<span class="material-symbols-outlined text-xs text-on-surface-variant" data-icon="database">database</span>
+<span class="font-mono text-[11px] text-on-surface-variant">11.8 MB</span>
+</div>
+</div>
+</div>
+<div class="mt-6 md:mt-0 flex flex-col items-end gap-1">
+<div class="flex items-center gap-2 text-primary font-medium">
+<span class="material-symbols-outlined text-sm" data-icon="check_circle" data-weight="fill">check_circle</span>
+<span class="text-sm">Ready</span>
+</div>
+<a class="text-xs text-on-surface-variant hover:text-primary underline underline-offset-4 transition-colors" href="#">Open Folder</a>
+</div>
+</div>
+<!-- Format Row: TFLite -->
+<div class="group bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 p-6 flex flex-col md:flex-row md:items-center justify-between rounded-none">
+<div class="flex items-start gap-5">
+<div class="w-12 h-12 bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="smartphone">smartphone</span>
+</div>
+<div>
+<h4 class="text-lg font-bold text-on-surface">TFLite</h4>
+<p class="text-on-surface-variant text-sm mt-1">Best for mobile deployment. Quantized to INT8 for edge devices.</p>
+<div class="mt-2 inline-flex items-center gap-2 px-2 py-1 bg-surface-container-highest rounded-sm">
+<span class="material-symbols-outlined text-xs text-on-surface-variant" data-icon="database">database</span>
+<span class="font-mono text-[11px] text-on-surface-variant">4.1 MB</span>
+</div>
+</div>
+</div>
+<div class="mt-6 md:mt-0 flex items-center gap-4">
+<button class="px-6 py-2 bg-surface-container-highest text-primary font-semibold text-sm hover:bg-primary hover:text-on-primary transition-all duration-200">
+                                Export
+                            </button>
+</div>
+</div>
+<!-- Format Row: CoreML -->
+<div class="group bg-surface-container-low hover:bg-surface-container-high transition-all duration-300 p-6 flex flex-col md:flex-row md:items-center justify-between rounded-none">
+<div class="flex items-start gap-5">
+<div class="w-12 h-12 bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="laptop_mac">laptop_mac</span>
+</div>
+<div>
+<h4 class="text-lg font-bold text-on-surface">CoreML</h4>
+<p class="text-on-surface-variant text-sm mt-1">Optimized for Apple Neural Engine (ANE) integration.</p>
+<div class="mt-2 inline-flex items-center gap-2 px-2 py-1 bg-surface-container-highest rounded-sm">
+<span class="material-symbols-outlined text-xs text-on-surface-variant" data-icon="database">database</span>
+<span class="font-mono text-[11px] text-on-surface-variant">8.9 MB</span>
+</div>
+</div>
+</div>
+<div class="mt-6 md:mt-0 flex items-center gap-4">
+<button class="px-6 py-2 bg-surface-container-highest text-primary font-semibold text-sm hover:bg-primary hover:text-on-primary transition-all duration-200">
+                                Export
+                            </button>
+</div>
+</div>
+</div>
+<!-- Footer Summary / Technical Stats -->
+<div class="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-surface-container-low border-t border-outline-variant/10">
+<div class="space-y-1">
+<p class="text-[10px] uppercase tracking-tighter text-slate-500 font-bold">Source Model</p>
+<p class="font-mono text-sm text-on-surface">yolov8-kinetic-x_v2.pt</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] uppercase tracking-tighter text-slate-500 font-bold">Inference Speed (avg)</p>
+<p class="font-mono text-sm text-primary">12.4ms <span class="text-on-surface-variant text-xs font-sans">on A100</span></p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] uppercase tracking-tighter text-slate-500 font-bold">mAP @ .5:.95</p>
+<p class="font-mono text-sm text-on-surface">0.842</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Mobile Navigation Shell -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#1C1B1B] h-16 flex items-center justify-around z-50 border-t border-outline-variant/10">
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="folder_open">folder_open</span>
+<span class="text-[10px]">Projects</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="model_training">model_training</span>
+<span class="text-[10px]">Train</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" data-icon="ios_share">ios_share</span>
+<span class="text-[10px]">Export</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-[10px]">Setup</span>
+</button>
+</nav>
+</main>
+</body></html>
