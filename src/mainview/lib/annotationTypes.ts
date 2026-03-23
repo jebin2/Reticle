@@ -16,7 +16,8 @@ export interface ClassDef {
 export interface ImageEntry {
   id: string;
   filename: string;
-  src: string; // data URL or file URL
+  src: string;        // blob URL or data URL — empty string until lazily loaded
+  filePath?: string;  // absolute FS path (for bridge-served images from native dialog)
   annotations: BBox[];
   flagged?: boolean;
 }

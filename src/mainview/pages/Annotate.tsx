@@ -6,8 +6,10 @@ import {
 import AnnotationCanvas, { type CanvasHandle } from "../components/AnnotationCanvas";
 import ImageList from "../components/ImageList";
 import ClassPanel from "../components/ClassPanel";
+import UploadZone from "../components/UploadZone";
 import { type BBox, type ClassDef, type AnnotateTool, type ImageEntry } from "../lib/annotationTypes";
-import { MOCK_IMAGES, MOCK_CLASSES } from "../lib/mockImages";
+import { loadImageSrc } from "../lib/imageLoader";
+import { MOCK_CLASSES } from "../lib/mockImages";
 
 // ── toolbar types ─────────────────────────────────────────────────────────────
 
@@ -41,7 +43,7 @@ const TOOLBAR: ToolbarEntry[] = [
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function Annotate() {
-  const [images, setImages]                     = useState<ImageEntry[]>(MOCK_IMAGES);
+  const [images, setImages]                     = useState<ImageEntry[]>([]);
   const [currentIndex, setCurrentIndex]         = useState(0);
   const [classes, setClasses]                   = useState<ClassDef[]>(MOCK_CLASSES);
   const [activeClassIndex, setActiveClassIndex] = useState(0);
@@ -52,6 +54,28 @@ export default function Annotate() {
 
   const canvasRef    = useRef<CanvasHandle>(null);
   const currentImage = images[currentIndex];
+
+  function addImages(entries: ImageEntry[]) {
+    setImages(prev => {
+      if (prev.length === 0) setCurrentIndex(0);
+      return [...prev, ...entries];
+    });
+  }
+
+  // Persist blob URL resolved by LazyThumbnail back into the images array.
+  function onSrcResolved(id: string, src: string) {
+    setImages(prev => prev.map(img => img.id === id ? { ...img, src } : img));
+  }
+
+  // When navigating to an image that hasn't loaded its src yet, fetch it now
+  // so AnnotationCanvas always receives a valid imageSrc.
+  useEffect(() => {
+    const img = images[currentIndex];
+    if (!img || img.src || !img.filePath) return;
+    loadImageSrc(img).then(src => {
+      setImages(prev => prev.map((m, i) => i === currentIndex ? { ...m, src } : m));
+    }).catch(() => {});
+  }, [currentIndex, images[currentIndex]?.src]);
 
   function updateAnnotations(anns: BBox[]) {
     setImages(prev => prev.map((img, i) => i === currentIndex ? { ...img, annotations: anns } : img));
@@ -128,18 +152,28 @@ export default function Annotate() {
         <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text)" }}>AUTONOMOUS_DRIVE_V4</span>
         <div style={{ width: 1, height: 16, background: "var(--border)" }} />
         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-          {currentIndex + 1} / {images.length}
+          {images.length > 0 ? `${currentIndex + 1} / ${images.length}` : "No images"}
         </span>
-        <span style={{ fontSize: 11, color: "var(--text-muted)", opacity: 0.6 }}>A · D to navigate</span>
+        {images.length > 0 && (
+          <span style={{ fontSize: 11, color: "var(--text-muted)", opacity: 0.6 }}>A · D to navigate</span>
+        )}
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-          {annotatedCount}/{images.length} annotated
-        </span>
-        <button style={{
-          padding: "6px 14px", borderRadius: 6, border: "none",
-          background: "var(--accent)", color: "#fff",
-          fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-        }}>
+        {images.length > 0 && (
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            {annotatedCount}/{images.length} annotated
+          </span>
+        )}
+        <button
+          disabled={images.length === 0}
+          style={{
+            padding: "6px 14px", borderRadius: 6, border: "none",
+            background: images.length > 0 ? "var(--accent)" : "var(--border)",
+            color: images.length > 0 ? "#fff" : "var(--text-muted)",
+            fontSize: 12, fontWeight: 600,
+            cursor: images.length > 0 ? "pointer" : "not-allowed",
+            fontFamily: "inherit",
+          }}
+        >
           Commit Annotations
         </button>
       </div>
@@ -150,86 +184,95 @@ export default function Annotate() {
           images={images}
           currentIndex={currentIndex}
           onSelect={i => { setSelectedId(null); setCurrentIndex(i); }}
+          onAddImages={addImages}
+          onSrcResolved={onSrcResolved}
         />
 
-        {/* Canvas + bottom toolbar */}
+        {/* Canvas area — upload zone when empty, canvas when images loaded */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <AnnotationCanvas
-            ref={canvasRef}
-            tool={tool}
-            classes={classes}
-            activeClassIndex={activeClassIndex}
-            annotations={currentImage.annotations}
-            selectedId={selectedId}
-            imageSrc={currentImage.src}
-            onAnnotationsChange={updateAnnotations}
-            onSelect={setSelectedId}
-            onZoomChange={setZoom}
-            onCoordsChange={(x, y) => setCoords({ x, y })}
-          />
+          {images.length === 0 ? (
+            <UploadZone onLoad={addImages} />
+          ) : (
+            <>
+              <AnnotationCanvas
+                ref={canvasRef}
+                tool={tool}
+                classes={classes}
+                activeClassIndex={activeClassIndex}
+                annotations={currentImage.annotations}
+                selectedId={selectedId}
+                imageSrc={currentImage.src}
+                onAnnotationsChange={updateAnnotations}
+                onSelect={setSelectedId}
+                onZoomChange={setZoom}
+                onCoordsChange={(x, y) => setCoords({ x, y })}
+              />
 
-          {/* Bottom toolbar */}
-          <div style={{
-            height: 44, flexShrink: 0,
-            background: "var(--surface)",
-            borderTop: "1px solid var(--border)",
-            display: "flex", alignItems: "center",
-            justifyContent: "center", gap: 2, padding: "0 12px",
-          }}>
-            {/* zoom + coords on the left */}
-            <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace", marginRight: "auto" }}>
-              {zoom}% · {coords.x}, {coords.y}
-            </span>
+              {/* Bottom toolbar */}
+              <div style={{
+                height: 44, flexShrink: 0,
+                background: "var(--surface)",
+                borderTop: "1px solid var(--border)",
+                display: "flex", alignItems: "center",
+                justifyContent: "center", gap: 2, padding: "0 12px",
+              }}>
+                {/* zoom + coords on the left */}
+                <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace", marginRight: "auto" }}>
+                  {zoom}% · {coords.x}, {coords.y}
+                </span>
 
-            {TOOLBAR.map((entry, i) => {
-              if (entry === "divider") {
-                return <div key={i} style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />;
-              }
-              const active    = isActive(entry);
-              const disabled  = isDisabled(entry);
-              const isDanger  = entry.kind === "action" && entry.action === "delete";
-              return (
-                <button
-                  key={i}
-                  title={entry.title}
-                  disabled={disabled}
-                  onClick={() => handleToolbarClick(entry)}
-                  style={{
-                    width: 34, height: 34, borderRadius: 7, border: "none",
-                    background: active ? "rgba(59,130,246,0.15)" : "transparent",
-                    color: disabled
-                      ? "var(--border)"
-                      : active
-                        ? "var(--accent)"
-                        : isDanger
-                          ? (selectedId ? "#EF4444" : "var(--border)")
-                          : "var(--text-muted)",
-                    cursor: disabled ? "not-allowed" : "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    transition: "background 0.12s, color 0.12s",
-                  }}
-                >
-                  <entry.Icon size={16} />
-                </button>
-              );
-            })}
+                {TOOLBAR.map((entry, i) => {
+                  if (entry === "divider") {
+                    return <div key={i} style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />;
+                  }
+                  const active   = isActive(entry);
+                  const disabled = isDisabled(entry);
+                  const isDanger = entry.kind === "action" && entry.action === "delete";
+                  return (
+                    <button
+                      key={i}
+                      title={entry.title}
+                      disabled={disabled}
+                      onClick={() => handleToolbarClick(entry)}
+                      style={{
+                        width: 34, height: 34, borderRadius: 7, border: "none",
+                        background: active ? "rgba(59,130,246,0.15)" : "transparent",
+                        color: disabled
+                          ? "var(--border)"
+                          : active
+                            ? "var(--accent)"
+                            : isDanger
+                              ? (selectedId ? "#EF4444" : "var(--border)")
+                              : "var(--text-muted)",
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.12s, color 0.12s",
+                      }}
+                    >
+                      <entry.Icon size={16} />
+                    </button>
+                  );
+                })}
 
-            {/* image name on the right */}
-            <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: "auto", fontFamily: "monospace" }}>
-              {currentImage.filename}
-            </span>
-          </div>
+                {/* image name on the right */}
+                <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: "auto", fontFamily: "monospace" }}>
+                  {currentImage.filename}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         <ClassPanel
           classes={classes}
           activeClassIndex={activeClassIndex}
-          annotations={currentImage.annotations}
+          annotations={currentImage?.annotations ?? []}
           selectedId={selectedId}
           onClassesChange={setClasses}
           onActiveClassChange={setActiveClassIndex}
           onSelectAnnotation={setSelectedId}
           onDeleteAnnotation={id => {
+            if (!currentImage) return;
             updateAnnotations(currentImage.annotations.filter(a => a.id !== id));
             if (selectedId === id) setSelectedId(null);
           }}
