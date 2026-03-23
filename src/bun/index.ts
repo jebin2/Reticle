@@ -471,7 +471,7 @@ const rpc = defineElectrobunRPC("bun", {
 				const buildDir = await mkdtemp(join(tmpdir(), "yolostudio-cli-"));
 				try {
 					await copyFile(modelPath,          join(buildDir, "model.pt"));
-					await copyFile(CLI_SCRIPT,         join(buildDir, "cli.py"));
+					await copyFile(INFER_SCRIPT,       join(buildDir, "infer.py"));
 					await copyFile(CLI_TEMPLATE_SCRIPT, join(buildDir, "cli.ts"));
 
 					// Compile: bun build --compile cli.ts --outfile <binary>
