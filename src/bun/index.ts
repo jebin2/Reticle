@@ -3,149 +3,40 @@ import { readdir, mkdir, copyFile, appendFile, unlink, rm, mkdtemp } from "fs/pr
 import { join, extname, basename } from "path";
 import { randomBytes } from "crypto";
 import { homedir, tmpdir } from "os";
+import {
+	YOLO_DIR, TRAIN_SCRIPT, INFER_SCRIPT, EXPORT_SCRIPT,
+	VENV_PYTHON, runningProcesses,
+	prepareEnvironment, runInference,
+	pipeLines, checkpointPath,
+} from "./util";
 
-const IMAGE_EXTS      = new Set([".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif"]);
-const TRAIN_SCRIPT    = join(import.meta.dir, "../python/train.py");
-const INFER_SCRIPT    = join(import.meta.dir, "../python/infer.py");
-const EXPORT_SCRIPT   = join(import.meta.dir, "../python/export.py");
-const CLI_SCRIPT          = join(import.meta.dir, "../python/cli.py");
-const CLI_TEMPLATE_SCRIPT = join(import.meta.dir, "cli-template.ts");
-const RUNTIME_TARBALL     = join(import.meta.dir, "../python/python-runtime.tar.gz");
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif"]);
 
-const YOLO_DIR        = join(homedir(), ".yolostudio");
-const RUNTIME_DIR     = join(YOLO_DIR, "python-runtime");
-const VENV_DIR        = join(YOLO_DIR, "venv");
+// Paths to CLI source files — copied into the compile temp dir by exportCLI.
+const CLI_ENTRY  = join(import.meta.dir, "cli.ts");
+const UTIL_ENTRY = join(import.meta.dir, "util.ts");
 
-const IS_WIN          = process.platform === "win32";
-const RUNTIME_PYTHON  = join(RUNTIME_DIR, "python", IS_WIN ? "python.exe" : "bin/python3");
-const VENV_PYTHON     = join(VENV_DIR, IS_WIN ? "Scripts/python.exe" : "bin/python");
-// Written only after a successful pip install — used to detect partial/failed venv.
-const VENV_READY_MARKER = join(VENV_DIR, ".ready");
-
-/**
- * Ensures the Python environment is ready, then returns [venvPython, trainScript].
- *
- * On first call:
- *   1. Extracts the bundled Python runtime tarball → ~/.yolostudio/python-runtime/
- *   2. Creates a venv using that Python           → ~/.yolostudio/venv/
- *   3. pip-installs ultralytics into the venv
- *
- * Subsequent calls are instant (everything already exists).
- * Each subprocess is registered under runId so stopTraining can kill it mid-setup.
- */
-async function prepareEnvironment(logPath: string, runId: string): Promise<string[]> {
-	const log = (text: string) =>
-		appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(() => {});
-
-	async function run(cmd: string[], label: string): Promise<void> {
-		const proc = Bun.spawn(cmd, {
-			stdout: "pipe",
-			stderr: "pipe",
-			env: { ...process.env, PYTHONUNBUFFERED: "1" },
-		});
-
-		runningProcesses.set(runId, proc);
-		try {
-			await Promise.all([
-				pipeLines(proc.stdout, log).catch(() => {}),
-				pipeLines(proc.stderr, log).catch(() => {}),
-			]);
-			const code = await proc.exited;
-			if (code !== 0) {
-				await log(`[setup] ✗ ${label} failed (exit ${code})`);
-				throw new Error(`${label} failed with exit code ${code}`);
-			}
-		} finally {
-			runningProcesses.delete(runId);
-		}
-	}
-
-	if (!(await Bun.file(RUNTIME_PYTHON).exists())) {
-		await log("[setup] Extracting bundled Python runtime…");
-		await mkdir(RUNTIME_DIR, { recursive: true });
-		await run(["tar", "xzf", RUNTIME_TARBALL, "-C", RUNTIME_DIR], "tar extract");
-		await log("[setup] Python runtime ready.");
-	}
-
-	// Guard on .ready marker so a failed pip install retries rather than skipping.
-	if (!(await Bun.file(VENV_READY_MARKER).exists())) {
-		await log("[setup] Creating virtual environment at ~/.yolostudio/venv…");
-		await run([RUNTIME_PYTHON, "-m", "venv", "--clear", VENV_DIR], "venv create");
-		await log("[setup] Virtual environment created.");
-
-		await log("[setup] Installing ultralytics (first run only — may take a few minutes)…");
-		await run([VENV_PYTHON, "-m", "pip", "install", "ultralytics"], "pip install");
-
-		await Bun.write(VENV_READY_MARKER, "ready");
-		await log("[setup] Environment ready. Starting training…");
-	}
-
-	return [VENV_PYTHON, TRAIN_SCRIPT];
-}
-
-// ── standalone helpers ─────────────────────────────────────────────────────────
-
-// Strip all ANSI/CSI escape sequences (\x1b[K erase-line, \x1b[1m bold, etc.)
-// and collapse \r-overwritten progress lines to their final state.
-function cleanLine(raw: string): string {
-	const segments = raw.split("\r");
-	return segments[segments.length - 1].replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").trim();
-}
-
-// Buffer a byte pipe, split on \n, clean each line, and call onLine per entry.
-// Single implementation used by both setup (pip) and training (ultralytics) output.
-async function pipeLines(
-	pipe: AsyncIterable<Uint8Array>,
-	onLine: (line: string) => Promise<void>,
-): Promise<void> {
-	const decoder = new TextDecoder();
-	let buf = "";
-	for await (const chunk of pipe) {
-		buf += decoder.decode(chunk, { stream: true });
-		const lines = buf.split("\n");
-		buf = lines.pop() ?? "";
-		for (const line of lines) {
-			const clean = cleanLine(line);
-			if (clean) await onLine(clean);
-		}
-	}
-	const clean = cleanLine(buf);
-	if (clean) await onLine(clean);
-}
-
-// Canonical path to the YOLO training checkpoint for a given output directory.
-function checkpointPath(outputPath: string): string {
-	return join(outputPath, "weights", "weights", "last.pt");
-}
-
-// Tracks active training subprocesses keyed by run ID.
-const runningProcesses = new Map<string, ReturnType<typeof Bun.spawn>>();
-
-// ── binary bridge ─────────────────────────────────────────────────────────────
+// ── Binary bridge ─────────────────────────────────────────────────────────────
 // Serves image files to the renderer by path. Avoids base64 encoding entirely.
 
 const securityToken = randomBytes(32).toString("hex");
 
 const server = Bun.serve({
-	port: 0, // random available port
+	port: 0,
 	async fetch(req) {
 		const headers = new Headers({ "Access-Control-Allow-Origin": "*" });
-		const url = new URL(req.url);
-
+		const url     = new URL(req.url);
 		if (url.searchParams.get("token") !== securityToken)
 			return new Response("Unauthorized", { status: 401, headers });
-
 		const filePath = url.searchParams.get("path");
 		if (!filePath) return new Response("Missing path", { status: 400, headers });
-
 		const file = Bun.file(filePath);
 		if (!(await file.exists())) return new Response("Not found", { status: 404, headers });
-
 		return new Response(file, { headers });
 	},
 });
 
-// ── recursive image collector ─────────────────────────────────────────────────
+// ── Recursive image collector ─────────────────────────────────────────────────
 
 async function collectImagePaths(dir: string): Promise<string[]> {
 	const entries = await readdir(dir, { withFileTypes: true });
@@ -164,18 +55,12 @@ const rpc = defineElectrobunRPC("bun", {
 	maxRequestTime: Infinity,
 	handlers: {
 		requests: {
-			getBridgeConfig: async () => ({
-				port:  server.port,
-				token: securityToken,
-			}),
+			getBridgeConfig: async () => ({ port: server.port, token: securityToken }),
 
 			openImagesDialog: async () => {
 				const filePaths = await Electrobun.Utils.openFileDialog({
-					startingFolder:        homedir(),
-					allowedFileTypes:      "*.jpg,*.jpeg,*.png,*.webp,*.bmp,*.gif,*.tiff,*.tif",
-					canChooseFiles:        true,
-					canChooseDirectory:    false,
-					allowsMultipleSelection: true,
+					startingFolder: homedir(), allowedFileTypes: "*.jpg,*.jpeg,*.png,*.webp,*.bmp,*.gif,*.tiff,*.tif",
+					canChooseFiles: true, canChooseDirectory: false, allowsMultipleSelection: true,
 				});
 				const canceled = !filePaths || filePaths.length === 0 || filePaths[0] === "";
 				return { canceled, paths: canceled ? [] : filePaths };
@@ -187,21 +72,15 @@ const rpc = defineElectrobunRPC("bun", {
 					const file = Bun.file(studioFile);
 					if (await file.exists()) {
 						const data = JSON.parse(await file.text());
-						// Processes don't survive app restarts — reset any active run to
-						// "paused" so the user sees a Resume button instead of a stuck
-						// "Training" badge with no live process behind it.
 						if (Array.isArray(data.runs)) {
 							data.runs = data.runs.map((r: { status: string }) =>
 								r.status === "training" || r.status === "installing"
-									? { ...r, status: "paused" }
-									: r
+									? { ...r, status: "paused" } : r
 							);
 						}
 						return data;
 					}
-				} catch (err) {
-					console.error("Failed to parse studio.json:", err);
-				}
+				} catch (err) { console.error("Failed to parse studio.json:", err); }
 				return { assets: [], runs: [] };
 			},
 
@@ -214,18 +93,13 @@ const rpc = defineElectrobunRPC("bun", {
 
 			openFolderDialog: async () => {
 				const filePaths = await Electrobun.Utils.openFileDialog({
-					startingFolder:        homedir(),
-					canChooseFiles:        false,
-					canChooseDirectory:    true,
-					allowsMultipleSelection: false,
+					startingFolder: homedir(), canChooseFiles: false,
+					canChooseDirectory: true, allowsMultipleSelection: false,
 				});
 				const canceled = !filePaths || filePaths.length === 0 || filePaths[0] === "";
 				if (canceled) return { canceled: true, paths: [] };
-
 				const paths = await collectImagePaths(filePaths[0]);
-				paths.sort((a, b) =>
-					a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-				);
+				paths.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 				return { canceled: false, paths };
 			},
 
@@ -234,10 +108,7 @@ const rpc = defineElectrobunRPC("bun", {
 				const labelsDir = join(storagePath, "labels");
 				await mkdir(imagesDir, { recursive: true });
 				await mkdir(labelsDir, { recursive: true });
-
-				const imageFiles = (await readdir(imagesDir))
-					.filter(f => IMAGE_EXTS.has(extname(f).toLowerCase()));
-
+				const imageFiles = (await readdir(imagesDir)).filter(f => IMAGE_EXTS.has(extname(f).toLowerCase()));
 				const labels: Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number }>> = {};
 				for (const filename of imageFiles) {
 					const labelPath = join(labelsDir, filename.replace(/\.[^.]+$/, ".txt"));
@@ -247,27 +118,19 @@ const rpc = defineElectrobunRPC("bun", {
 							const [ci, cx, cy, w, h] = line.split(" ").map(Number);
 							return { classIndex: ci, cx, cy, w, h };
 						});
-					} catch {
-						labels[filename] = [];
-					}
+					} catch { labels[filename] = []; }
 				}
-
 				let classes: string[] = [];
 				try {
 					const text = await Bun.file(join(storagePath, "classes.txt")).text();
 					classes = text.trim().split("\n").filter(Boolean);
 				} catch {}
-
-				return {
-					images:  imageFiles.map(f => ({ filename: f, filePath: join(imagesDir, f) })),
-					labels,
-					classes,
-				};
+				return { images: imageFiles.map(f => ({ filename: f, filePath: join(imagesDir, f) })), labels, classes };
 			},
 
 			saveAnnotations: async ({ storagePath, labels, classes }: {
 				storagePath: string;
-				labels:  Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number }>>;
+				labels: Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number }>>;
 				classes: string[];
 			}) => {
 				const labelsDir = join(storagePath, "labels");
@@ -292,9 +155,8 @@ const rpc = defineElectrobunRPC("bun", {
 				const results: Array<{ filename: string; filePath: string }> = [];
 				for (const file of files) {
 					const dest = join(imagesDir, basename(file.filename));
-					if (file.sourcePath && file.sourcePath !== dest) {
-						await copyFile(file.sourcePath, dest);
-					} else if (file.dataUrl) {
+					if (file.sourcePath && file.sourcePath !== dest) await copyFile(file.sourcePath, dest);
+					else if (file.dataUrl) {
 						const [, b64] = file.dataUrl.split(",");
 						await Bun.write(dest, Buffer.from(b64, "base64"));
 					}
@@ -305,15 +167,11 @@ const rpc = defineElectrobunRPC("bun", {
 
 			openFolderPathDialog: async () => {
 				const filePaths = await Electrobun.Utils.openFileDialog({
-					startingFolder:        homedir(),
-					canChooseFiles:        false,
-					canChooseDirectory:    true,
-					allowsMultipleSelection: false,
+					startingFolder: homedir(), canChooseFiles: false,
+					canChooseDirectory: true, allowsMultipleSelection: false,
 				});
 				const canceled = !filePaths || filePaths.length === 0 || filePaths[0] === "";
-				return canceled
-					? { canceled: true, path: "" }
-					: { canceled: false, path: filePaths[0] };
+				return canceled ? { canceled: true, path: "" } : { canceled: false, path: filePaths[0] };
 			},
 
 			startTraining: async (config: {
@@ -322,36 +180,23 @@ const rpc = defineElectrobunRPC("bun", {
 				device: string; outputPath: string; fresh: boolean;
 			}) => {
 				await mkdir(config.outputPath, { recursive: true });
-
 				if (config.fresh) {
 					await unlink(checkpointPath(config.outputPath)).catch(() => {});
 					await unlink(join(config.outputPath, "train.log")).catch(() => {});
 				}
-
 				const logPath = join(config.outputPath, "train.log");
-				await appendFile(logPath, JSON.stringify({
-					type: "start", timestamp: new Date().toISOString(), config,
-				}) + "\n");
+				await appendFile(logPath, JSON.stringify({ type: "start", timestamp: new Date().toISOString(), config }) + "\n");
 
-				const trainCmd = await prepareEnvironment(logPath, config.id);
-				const proc = Bun.spawn(trainCmd, {
-					stdin:  "pipe",
-					stdout: "pipe",
-					stderr: "pipe",
-				});
+				const venvPython = await prepareEnvironment(logPath, config.id);
+				await appendFile(logPath, JSON.stringify({ type: "stderr", text: "[setup] Starting training…" }) + "\n");
 
+				const proc = Bun.spawn([venvPython, TRAIN_SCRIPT], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
 				runningProcesses.set(config.id, proc);
-
-				// Write JSON config to Python stdin then close it.
 				proc.stdin.write(JSON.stringify(config));
 				proc.stdin.end();
 
-				// stdout: newline-delimited JSON from train.py (progress/done/error).
-				pipeLines(proc.stdout, line =>
-					appendFile(logPath, line + "\n").catch(console.error)
-				).then(() => runningProcesses.delete(config.id)).catch(console.error);
-
-				// stderr: ultralytics status + progress bars — wrap as typed log entries.
+				pipeLines(proc.stdout, line => appendFile(logPath, line + "\n").catch(console.error))
+					.then(() => runningProcesses.delete(config.id)).catch(console.error);
 				pipeLines(proc.stderr, text =>
 					appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(console.error)
 				).catch(console.error);
@@ -363,80 +208,35 @@ const rpc = defineElectrobunRPC("bun", {
 				const logPath = join(outputPath, "train.log");
 				try {
 					const content = await Bun.file(logPath).text();
-					const lines   = content.split("\n").filter(l => l.trim());
-					return { lines };
-				} catch {
-					return { lines: [] };
-				}
+					return { lines: content.split("\n").filter(l => l.trim()) };
+				} catch { return { lines: [] }; }
 			},
 
 			runInference: async ({ imagePath, outputPath, confidence }: {
 				imagePath: string; outputPath: string; confidence: number;
 			}) => {
-				const inferLogPath = join(YOLO_DIR, "infer-setup.log");
-				try {
-					await prepareEnvironment(inferLogPath, "inference");
-				} catch (err) {
-					return { detections: [], inferenceMs: 0, error: `Environment setup failed: ${(err as Error).message}` };
-				}
 				const modelPath = join(outputPath, "weights", "weights", "best.pt");
-				if (!(await Bun.file(modelPath).exists())) {
-					return { detections: [], inferenceMs: 0, error: "Model weights not found — the output directory may have been moved or deleted." };
-				}
-
-				const t0  = Date.now();
-				const proc = Bun.spawn([VENV_PYTHON, INFER_SCRIPT], {
-					stdin:  "pipe",
-					stdout: "pipe",
-					stderr: "pipe",
-				});
-
-				proc.stdin.write(JSON.stringify({ imagePath, modelPath, confidence }));
-				proc.stdin.end();
-
-				const decoder = new TextDecoder();
-				let stdout = "";
-				let stderr = "";
-				await Promise.all([
-					(async () => { for await (const chunk of proc.stdout) stdout += decoder.decode(chunk); })(),
-					(async () => { for await (const chunk of proc.stderr) stderr += decoder.decode(chunk); })(),
-				]);
-				await proc.exited;
-
-				const inferenceMs = Date.now() - t0;
-				const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
-				try {
-					const data = JSON.parse(line);
-					if (data.error) return { detections: [], inferenceMs, error: data.error };
-					return { detections: data.detections ?? [], inferenceMs, error: null };
-				} catch {
-					if (stderr.trim()) console.error("[infer] stderr:\n", stderr.trim());
-					if (stdout.trim()) console.error("[infer] stdout:\n", stdout.trim());
-					const hint = stderr.trim().split("\n").filter(l => l.trim()).pop() ?? "";
-					return { detections: [], inferenceMs, error: `Inference failed.${hint ? ` ${hint}` : ""}` };
-				}
+				if (!(await Bun.file(modelPath).exists()))
+					return { detections: [], inferenceMs: 0, error: "Model weights not found." };
+				return runInference(
+					imagePath, modelPath, confidence,
+					INFER_SCRIPT,
+					join(YOLO_DIR, "infer-setup.log"),
+					"inference",
+				);
 			},
 
 			exportModel: async ({ outputPath, format }: { outputPath: string; format: string }) => {
-				if (!(await Bun.file(VENV_READY_MARKER).exists()))
-					return { exportedPath: "", fileSize: 0, error: "Python environment not ready." };
-
 				const modelPath = join(outputPath, "weights", "weights", "best.pt");
 				if (!(await Bun.file(modelPath).exists()))
 					return { exportedPath: "", fileSize: 0, error: "Model weights not found." };
-
-				// PyTorch: best.pt already exists — nothing to convert.
 				if (format === "pt") {
 					const size = (await Bun.file(modelPath).size) ?? 0;
 					return { exportedPath: modelPath, fileSize: size, error: null };
 				}
-
-				const proc = Bun.spawn([VENV_PYTHON, EXPORT_SCRIPT], {
-					stdin: "pipe", stdout: "pipe", stderr: "pipe",
-				});
+				const proc = Bun.spawn([VENV_PYTHON, EXPORT_SCRIPT], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
 				proc.stdin.write(JSON.stringify({ modelPath, format }));
 				proc.stdin.end();
-
 				const dec = new TextDecoder();
 				let stdout = ""; let stderr = "";
 				await Promise.all([
@@ -444,7 +244,6 @@ const rpc = defineElectrobunRPC("bun", {
 					(async () => { for await (const c of proc.stderr) stderr += dec.decode(c); })(),
 				]);
 				await proc.exited;
-
 				const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
 				try {
 					const data = JSON.parse(line);
@@ -467,15 +266,14 @@ const rpc = defineElectrobunRPC("bun", {
 				const safeName  = runName.replace(/[^a-zA-Z0-9_-]/g, "_");
 				const outBinary = join(destDir, `${safeName}-detect${process.platform === "win32" ? ".exe" : ""}`);
 
-				// Create a temp dir with all assets the template needs at compile time.
+				// Temp dir: cli.ts + util.ts (its import) + model.pt + infer.py (embedded assets)
 				const buildDir = await mkdtemp(join(tmpdir(), "yolostudio-cli-"));
 				try {
-					await copyFile(modelPath,          join(buildDir, "model.pt"));
-					await copyFile(INFER_SCRIPT,       join(buildDir, "infer.py"));
-					await copyFile(CLI_TEMPLATE_SCRIPT, join(buildDir, "cli.ts"));
+					await copyFile(CLI_ENTRY,    join(buildDir, "cli.ts"));
+					await copyFile(UTIL_ENTRY,   join(buildDir, "util.ts"));
+					await copyFile(modelPath,    join(buildDir, "model.pt"));
+					await copyFile(INFER_SCRIPT, join(buildDir, "infer.py"));
 
-					// Compile: bun build --compile cli.ts --outfile <binary>
-					// process.execPath is the running Bun binary — guaranteed to exist.
 					const proc = Bun.spawn(
 						[process.execPath, "build", "--compile", join(buildDir, "cli.ts"), "--outfile", outBinary],
 						{ stdout: "pipe", stderr: "pipe" },
@@ -483,9 +281,8 @@ const rpc = defineElectrobunRPC("bun", {
 					let stderr = "";
 					for await (const chunk of proc.stderr) stderr += new TextDecoder().decode(chunk);
 					const exitCode = await proc.exited;
-					if (exitCode !== 0) {
+					if (exitCode !== 0)
 						return { bundlePath: "", error: `Compile failed: ${stderr.trim().split("\n").pop()}` };
-					}
 				} finally {
 					await rm(buildDir, { recursive: true, force: true }).catch(() => {});
 				}
@@ -495,13 +292,10 @@ const rpc = defineElectrobunRPC("bun", {
 
 			revealInFilesystem: async ({ path }: { path: string }) => {
 				const dir = path.includes(".") && !path.endsWith("/")
-					? path.split("/").slice(0, -1).join("/")
-					: path;
+					? path.split("/").slice(0, -1).join("/") : path;
 				const cmd = process.platform === "darwin"
 					? ["open", "-R", path]
-					: process.platform === "win32"
-						? ["explorer", `/select,${path}`]
-						: ["xdg-open", dir];
+					: process.platform === "win32" ? ["explorer", `/select,${path}`] : ["xdg-open", dir];
 				Bun.spawn(cmd);
 				return {};
 			},
@@ -510,10 +304,7 @@ const rpc = defineElectrobunRPC("bun", {
 				runId: string; clearCheckpoint?: boolean; outputPath?: string;
 			}) => {
 				const proc = runningProcesses.get(runId);
-				if (proc) {
-					proc.kill(9); // SIGKILL — guaranteed termination regardless of pip/torch state
-					runningProcesses.delete(runId);
-				}
+				if (proc) { proc.kill(9); runningProcesses.delete(runId); }
 				if (clearCheckpoint && outputPath) {
 					await unlink(checkpointPath(outputPath)).catch(() => {});
 					await unlink(join(outputPath, "train.log")).catch(() => {});
@@ -524,7 +315,7 @@ const rpc = defineElectrobunRPC("bun", {
 	},
 });
 
-// ── window ────────────────────────────────────────────────────────────────────
+// ── Window ────────────────────────────────────────────────────────────────────
 
 const mainWindow = new BrowserWindow({
 	title: "YOLOStudio",
