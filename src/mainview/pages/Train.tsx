@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, FolderOpen, Cpu, Play, Square, AlertCircle } from "lucide-react";
+import { Plus, FolderOpen, Cpu, Play, Square, Trash2 } from "lucide-react";
 import { type TrainingRun, type Asset } from "../lib/types";
 import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, BASE_MODELS, DEVICES, CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
@@ -252,7 +252,7 @@ function RunCard({ run, assets, progress, onStart, onStop, onDelete }: RunCardPr
               <ActionBtn Icon={Square} color="#EF4444" title="Stop training" onClick={onStop} />
             )}
             {(run.status === "idle" || run.status === "done" || run.status === "failed") && (
-              <ActionBtn Icon={AlertCircle} color="var(--text-muted)" title="Delete run" onClick={onDelete} danger />
+              <ActionBtn Icon={Trash2} color="var(--text-muted)" title="Delete run" onClick={onDelete} danger />
             )}
           </div>
         </div>
