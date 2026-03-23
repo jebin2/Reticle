@@ -9,10 +9,9 @@ interface Props {
   currentIndex: number;
   onSelect: (index: number) => void;
   onAddImages: (entries: ImageEntry[]) => void;
-  onSrcResolved: (id: string, src: string) => void;
 }
 
-export default function ImageList({ images, currentIndex, onSelect, onAddImages, onSrcResolved }: Props) {
+export default function ImageList({ images, currentIndex, onSelect, onAddImages }: Props) {
   const { openImages, openFolder, loading: adding } = useImagePicker(onAddImages);
 
   return (
@@ -56,7 +55,7 @@ export default function ImageList({ images, currentIndex, onSelect, onAddImages,
               }}
             >
               <div style={{ position: "relative" }}>
-                <LazyThumbnail entry={img} onSrcResolved={onSrcResolved} />
+                <LazyThumbnail entry={img} />
                 {hasAnnotations && (
                   <div style={{
                     position: "absolute", top: 4, right: 4,
@@ -90,42 +89,57 @@ export default function ImageList({ images, currentIndex, onSelect, onAddImages,
   );
 }
 
-// Loads the image src lazily on mount via the binary bridge.
-// Once resolved, propagates the blob URL up so the parent can persist it.
-// Uses a stable callback ref so the effect deps stay minimal and correct.
-function LazyThumbnail({ entry, onSrcResolved }: {
-  entry: ImageEntry;
-  onSrcResolved: (id: string, src: string) => void;
-}) {
+// Fetches the thumbnail only while it is visible in the scroll panel.
+// An IntersectionObserver triggers the fetch on scroll-into-view and revokes
+// the blob URL on scroll-out, keeping memory proportional to visible items.
+function LazyThumbnail({ entry }: { entry: ImageEntry }) {
   const [src, setSrc] = useState(entry.src);
-
-  // Keep a stable ref to the callback to avoid re-running the fetch when the
-  // parent re-renders and passes a new function reference.
-  const onSrcResolvedRef = useRef(onSrcResolved);
-  onSrcResolvedRef.current = onSrcResolved;
+  const containerRef  = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Data URLs (drag-drop before file copy completes) — use directly, no observer needed.
     if (entry.src) { setSrc(entry.src); return; }
-    if (!entry.filePath) return;
+    if (!entry.filePath || !containerRef.current) return;
 
-    let revoked = false;
-    loadImageSrc(entry)
-      .then(resolved => {
-        if (revoked) { URL.revokeObjectURL(resolved); return; }
+    let blobUrl: string | null = null;
+    let fetchCanceled = false;
+
+    function load() {
+      if (blobUrl || fetchCanceled) return;
+      loadImageSrc(entry).then(resolved => {
+        if (fetchCanceled) { URL.revokeObjectURL(resolved); return; }
+        blobUrl = resolved;
         setSrc(resolved);
-        onSrcResolvedRef.current(entry.id, resolved);
-      })
-      .catch(() => {});
+      }).catch(() => {});
+    }
 
-    // If the entry is removed before loading completes, revoke immediately.
-    return () => { revoked = true; };
+    function unload() {
+      if (!blobUrl) return;
+      URL.revokeObjectURL(blobUrl);
+      blobUrl = null;
+      setSrc("");
+    }
+
+    const observer = new IntersectionObserver(
+      ([e]) => { e.isIntersecting ? load() : unload(); },
+      { threshold: 0 },
+    );
+    observer.observe(containerRef.current);
+
+    return () => {
+      fetchCanceled = true;
+      observer.disconnect();
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
   }, [entry.id, entry.filePath, entry.src]);
 
-  if (!src) {
-    return <div style={{ width: "100%", height: 76, background: "var(--surface-2)" }} />;
-  }
   return (
-    <img src={src} alt={entry.filename} style={{ width: "100%", height: 76, objectFit: "cover", display: "block" }} />
+    <div ref={containerRef} style={{ width: "100%", height: 76 }}>
+      {src
+        ? <img src={src} alt={entry.filename} style={{ width: "100%", height: 76, objectFit: "cover", display: "block" }} />
+        : <div style={{ width: "100%", height: 76, background: "var(--surface-2)" }} />
+      }
+    </div>
   );
 }
 

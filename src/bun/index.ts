@@ -1,6 +1,6 @@
 import Electrobun, { BrowserWindow, defineElectrobunRPC } from "electrobun/bun";
-import { readdir, mkdir } from "fs/promises";
-import { join, extname } from "path";
+import { readdir, mkdir, copyFile } from "fs/promises";
+import { join, extname, basename } from "path";
 import { randomBytes } from "crypto";
 import { homedir } from "os";
 
@@ -101,6 +101,93 @@ const rpc = defineElectrobunRPC("bun", {
 					a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
 				);
 				return { canceled: false, paths };
+			},
+
+			loadAssetData: async ({ storagePath }: { storagePath: string }) => {
+				const imagesDir = join(storagePath, "images");
+				const labelsDir = join(storagePath, "labels");
+				await mkdir(imagesDir, { recursive: true });
+				await mkdir(labelsDir, { recursive: true });
+
+				const imageFiles = (await readdir(imagesDir))
+					.filter(f => IMAGE_EXTS.has(extname(f).toLowerCase()));
+
+				const labels: Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number }>> = {};
+				for (const filename of imageFiles) {
+					const labelPath = join(labelsDir, filename.replace(/\.[^.]+$/, ".txt"));
+					try {
+						const text = await Bun.file(labelPath).text();
+						labels[filename] = text.trim().split("\n").filter(Boolean).map(line => {
+							const [ci, cx, cy, w, h] = line.split(" ").map(Number);
+							return { classIndex: ci, cx, cy, w, h };
+						});
+					} catch {
+						labels[filename] = [];
+					}
+				}
+
+				let classes: string[] = [];
+				try {
+					const text = await Bun.file(join(storagePath, "classes.txt")).text();
+					classes = text.trim().split("\n").filter(Boolean);
+				} catch {}
+
+				return {
+					images:  imageFiles.map(f => ({ filename: f, filePath: join(imagesDir, f) })),
+					labels,
+					classes,
+				};
+			},
+
+			saveAnnotations: async ({ storagePath, labels, classes }: {
+				storagePath: string;
+				labels:  Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number }>>;
+				classes: string[];
+			}) => {
+				const labelsDir = join(storagePath, "labels");
+				await mkdir(labelsDir, { recursive: true });
+				for (const [filename, anns] of Object.entries(labels)) {
+					const labelPath = join(labelsDir, filename.replace(/\.[^.]+$/, ".txt"));
+					const content   = anns.map(a =>
+						`${a.classIndex} ${a.cx.toFixed(6)} ${a.cy.toFixed(6)} ${a.w.toFixed(6)} ${a.h.toFixed(6)}`
+					).join("\n");
+					await Bun.write(labelPath, content);
+				}
+				await Bun.write(join(storagePath, "classes.txt"), classes.join("\n"));
+				return {};
+			},
+
+			importImages: async ({ storagePath, files }: {
+				storagePath: string;
+				files: Array<{ filename: string; sourcePath?: string; dataUrl?: string }>;
+			}) => {
+				const imagesDir = join(storagePath, "images");
+				await mkdir(imagesDir, { recursive: true });
+				const results: Array<{ filename: string; filePath: string }> = [];
+				for (const file of files) {
+					const dest = join(imagesDir, basename(file.filename));
+					if (file.sourcePath && file.sourcePath !== dest) {
+						await copyFile(file.sourcePath, dest);
+					} else if (file.dataUrl) {
+						const [, b64] = file.dataUrl.split(",");
+						await Bun.write(dest, Buffer.from(b64, "base64"));
+					}
+					results.push({ filename: basename(file.filename), filePath: dest });
+				}
+				return { images: results };
+			},
+
+			openFolderPathDialog: async () => {
+				const filePaths = await Electrobun.Utils.openFileDialog({
+					startingFolder:        homedir(),
+					canChooseFiles:        false,
+					canChooseDirectory:    true,
+					allowsMultipleSelection: false,
+				});
+				const canceled = !filePaths || filePaths.length === 0 || filePaths[0] === "";
+				return canceled
+					? { canceled: true, path: "" }
+					: { canceled: false, path: filePaths[0] };
 			},
 		},
 	},

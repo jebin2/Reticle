@@ -10,6 +10,8 @@ import UploadZone from "../components/UploadZone";
 import { type BBox, type ClassDef, type AnnotateTool, type ImageEntry } from "../lib/annotationTypes";
 import { type Asset } from "../lib/types";
 import { loadImageSrc } from "../lib/imageLoader";
+import { getRPC } from "../lib/rpc";
+import { CLASS_COLORS } from "../lib/constants";
 
 // ── toolbar types ─────────────────────────────────────────────────────────────
 
@@ -57,68 +59,153 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
   const [selectedId, setSelectedId]             = useState<string | null>(null);
   const [zoom, setZoom]                         = useState(100);
   const [coords, setCoords]                     = useState({ x: 0, y: 0 });
+  const [canvasSrc, setCanvasSrc]               = useState("");
 
   const canvasRef    = useRef<CanvasHandle>(null);
   const currentImage = images[currentIndex];
 
-  // Ref used in the unmount cleanup to revoke all outstanding blob URLs.
-  const imagesRef = useRef(images);
-  imagesRef.current = images;
+  // Keep latest images/classes accessible in debounced save without stale closures.
+  const imagesRef  = useRef(images);
+  const classesRef = useRef(classes);
+  imagesRef.current  = images;
+  classesRef.current = classes;
 
-  // Revoke all blob URLs when the page unmounts to prevent memory leaks.
+  // Prevents saving before the initial load completes.
+  const loadedRef    = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks the current canvas blob URL so we can revoke it when navigating away.
+  const canvasSrcRef = useRef("");
+
+  // Clear pending save and revoke canvas blob URL on unmount.
   useEffect(() => {
     return () => {
-      imagesRef.current.forEach(img => {
-        if (img.src?.startsWith("blob:")) URL.revokeObjectURL(img.src);
-      });
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (canvasSrcRef.current.startsWith("blob:")) URL.revokeObjectURL(canvasSrcRef.current);
     };
   }, []);
 
+  // ── persistence ───────────────────────────────────────────────────────────
+
+  // Load images, labels, and classes from the asset's storagePath on open.
+  useEffect(() => {
+    loadedRef.current = false;
+    setImages([]);
+    setClasses([]);
+    setCurrentIndex(0);
+
+    getRPC().request.loadAssetData({ storagePath: asset.storagePath }).then(data => {
+      const entries: ImageEntry[] = data.images.map(img => ({
+        id:          crypto.randomUUID(),
+        filename:    img.filename,
+        src:         "",
+        filePath:    img.filePath,
+        annotations: (data.labels[img.filename] ?? []).map(a => ({
+          id:         crypto.randomUUID(),
+          classIndex: a.classIndex,
+          cx:         a.cx,
+          cy:         a.cy,
+          w:          a.w,
+          h:          a.h,
+        })),
+      }));
+      setImages(entries);
+      setClasses(data.classes.map((name, i) => ({
+        name,
+        color: CLASS_COLORS[i % CLASS_COLORS.length],
+      })));
+      loadedRef.current = true;
+    }).catch(() => {
+      loadedRef.current = true;
+    });
+  }, [asset.id]);
+
+  function saveNow(imgs: ImageEntry[], cls: ClassDef[]) {
+    const labels: Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number }>> = {};
+    for (const img of imgs) {
+      labels[img.filename] = img.annotations.map(({ classIndex, cx, cy, w, h }) => ({ classIndex, cx, cy, w, h }));
+    }
+    getRPC().request.saveAnnotations({
+      storagePath: asset.storagePath,
+      labels,
+      classes: cls.map(c => c.name),
+    }).catch(() => {});
+  }
+
+  // Schedule a debounced save (200 ms). Uses refs so the timeout always sees
+  // the latest images/classes regardless of when it fires.
+  function scheduleSave() {
+    if (!loadedRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveNow(imagesRef.current, classesRef.current);
+    }, 200);
+  }
+
   // ── image loading ─────────────────────────────────────────────────────────
 
+  // Copy images into storagePath/images/ then add them to the list.
   function addImages(entries: ImageEntry[]) {
-    // Pure updater — no side effects inside. currentIndex starts at 0 so the
-    // first image is automatically shown when images go from [] to [n items].
-    setImages(prev => [...prev, ...entries]);
+    const files = entries.map(e => ({
+      filename:   e.filename,
+      sourcePath: e.filePath,
+      dataUrl:    !e.filePath ? e.src : undefined,
+    }));
+    getRPC().request.importImages({ storagePath: asset.storagePath, files })
+      .then(({ images: imported }) => {
+        const newEntries: ImageEntry[] = entries.map((entry, i) => ({
+          ...entry,
+          src:      "",   // image is now on disk — thumbnail fetches via IntersectionObserver
+          filename: imported[i]?.filename ?? entry.filename,
+          filePath: imported[i]?.filePath ?? entry.filePath,
+        }));
+        setImages(prev => {
+          const existing = new Set(prev.map(img => img.filename));
+          const toAdd = newEntries.filter(e => !existing.has(e.filename));
+          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+        });
+        scheduleSave();
+      })
+      .catch(() => {
+        setImages(prev => {
+          const existing = new Set(prev.map(img => img.filename));
+          const toAdd = entries.filter(e => !existing.has(e.filename));
+          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+        });
+      });
   }
 
-  // Batch blob-URL updates from LazyThumbnail into a single setImages call.
-  // Without batching, 1000 thumbnails loading simultaneously would trigger
-  // 1000 separate setImages → 1000 O(n) maps. With a rAF flush we coalesce
-  // all updates that arrive in the same frame into one map pass.
-  const pendingSrcUpdates = useRef<Map<string, string>>(new Map());
-  const srcFlushScheduled = useRef(false);
-
-  function onSrcResolved(id: string, src: string) {
-    pendingSrcUpdates.current.set(id, src);
-    if (srcFlushScheduled.current) return;
-    srcFlushScheduled.current = true;
-    requestAnimationFrame(() => {
-      srcFlushScheduled.current = false;
-      const updates = new Map(pendingSrcUpdates.current);
-      pendingSrcUpdates.current.clear();
-      if (updates.size === 0) return;
-      setImages(prev => prev.map(img => {
-        const newSrc = updates.get(img.id);
-        return newSrc ? { ...img, src: newSrc } : img;
-      }));
-    });
-  }
-
-  // When navigating to an image whose src hasn't loaded yet (not yet visible
-  // in the thumbnail list), fetch it now so the canvas doesn't show blank.
+  // Fetch the canvas image independently of thumbnails.
+  // Revokes the previous blob URL before loading the next one.
   useEffect(() => {
+    if (canvasSrcRef.current.startsWith("blob:")) {
+      URL.revokeObjectURL(canvasSrcRef.current);
+      canvasSrcRef.current = "";
+    }
+
     const img = images[currentIndex];
-    if (!img || img.src || !img.filePath) return;
+    if (!img) { setCanvasSrc(""); return; }
+    if (img.src)      { setCanvasSrc(img.src); canvasSrcRef.current = img.src; return; }
+    if (!img.filePath) return;
+
+    let canceled = false;
     loadImageSrc(img).then(src => {
-      setImages(prev => prev.map((m, i) => i === currentIndex ? { ...m, src } : m));
+      if (canceled) { URL.revokeObjectURL(src); return; }
+      canvasSrcRef.current = src;
+      setCanvasSrc(src);
     }).catch(() => {});
-  }, [currentIndex, images[currentIndex]?.src]);
+    return () => { canceled = true; };
+  }, [currentIndex, images[currentIndex]?.filePath]);
 
   // ── annotations ───────────────────────────────────────────────────────────
 
   function updateAnnotations(anns: BBox[]) {
     setImages(prev => prev.map((img, i) => i === currentIndex ? { ...img, annotations: anns } : img));
+    scheduleSave();
+  }
+
+  function handleClassesChange(newClasses: ClassDef[]) {
+    setClasses(newClasses);
+    scheduleSave();
   }
 
   // ── navigation ────────────────────────────────────────────────────────────
@@ -146,7 +233,6 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
 
   // ── derived state ─────────────────────────────────────────────────────────
 
-  // useMemo so this O(n) filter doesn't re-run on every render (zoom, coords, etc.)
   const annotatedCount = useMemo(
     () => images.filter(i => i.annotations.length > 0).length,
     [images],
@@ -199,6 +285,7 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
       }}>
         <button
           onClick={() => {
+            saveNow(images, classes);
             onAssetUpdate({
               ...asset,
               imageCount:     images.length,
@@ -232,6 +319,7 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
         )}
         <button
           disabled={images.length === 0}
+          onClick={() => saveNow(images, classes)}
           style={{
             padding: "6px 14px", borderRadius: 6, border: "none",
             background: images.length > 0 ? "var(--accent)" : "var(--border)",
@@ -252,7 +340,6 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
           currentIndex={currentIndex}
           onSelect={i => { setSelectedId(null); setCurrentIndex(i); }}
           onAddImages={addImages}
-          onSrcResolved={onSrcResolved}
         />
 
         {/* Canvas area — upload zone when empty, canvas when images loaded */}
@@ -268,7 +355,7 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
                 activeClassIndex={activeClassIndex}
                 annotations={currentImage.annotations}
                 selectedId={selectedId}
-                imageSrc={currentImage.src}
+                imageSrc={canvasSrc}
                 onAnnotationsChange={updateAnnotations}
                 onSelect={setSelectedId}
                 onZoomChange={setZoom}
@@ -333,7 +420,7 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
           activeClassIndex={activeClassIndex}
           annotations={currentImage?.annotations ?? []}
           selectedId={selectedId}
-          onClassesChange={setClasses}
+          onClassesChange={handleClassesChange}
           onActiveClassChange={setActiveClassIndex}
           onSelectAnnotation={setSelectedId}
           onDeleteAnnotation={id => {

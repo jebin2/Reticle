@@ -28,6 +28,33 @@ type RPCSchema = {
         params:   Record<string, never>;
         response: { canceled: boolean; paths: string[] };
       };
+      openFolderPathDialog: {
+        params:   Record<string, never>;
+        response: { canceled: boolean; path: string };
+      };
+      loadAssetData: {
+        params:   { storagePath: string };
+        response: {
+          images:  Array<{ filename: string; filePath: string }>;
+          labels:  Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number }>>;
+          classes: string[];
+        };
+      };
+      saveAnnotations: {
+        params: {
+          storagePath: string;
+          labels:  Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number }>>;
+          classes: string[];
+        };
+        response: Record<string, never>;
+      };
+      importImages: {
+        params: {
+          storagePath: string;
+          files: Array<{ filename: string; sourcePath?: string; dataUrl?: string }>;
+        };
+        response: { images: Array<{ filename: string; filePath: string }> };
+      };
     };
     messages: {};
     push: {};

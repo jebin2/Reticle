@@ -235,8 +235,14 @@ function NewAssetModal({ onClose, onCreate }: {
   async function pickFolder() {
     setPicking(true);
     try {
-      const { canceled, paths } = await getRPC().request.openFolderDialog({});
-      if (!canceled && paths.length > 0) setStoragePath(paths[0]);
+      const { canceled, path } = await getRPC().request.openFolderPathDialog({});
+      if (!canceled && path) {
+        setStoragePath(path);
+        if (!name.trim()) {
+          const folderName = path.split("/").filter(Boolean).pop() ?? "";
+          setName(folderName);
+        }
+      }
     } finally {
       setPicking(false);
     }
