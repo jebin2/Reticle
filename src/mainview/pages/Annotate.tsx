@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ChevronLeft, ChevronRight, SkipForward,
-  Maximize2, Hand, Square, Lasso, ZoomIn, ZoomOut, Trash2,
+  Maximize2, Hand, Square, Lasso, ZoomIn, ZoomOut, Trash2, ArrowLeft,
 } from "lucide-react";
 import AnnotationCanvas, { type CanvasHandle } from "../components/AnnotationCanvas";
 import ImageList from "../components/ImageList";
 import ClassPanel from "../components/ClassPanel";
 import UploadZone from "../components/UploadZone";
 import { type BBox, type ClassDef, type AnnotateTool, type ImageEntry } from "../lib/annotationTypes";
+import { type Asset } from "../lib/types";
 import { loadImageSrc } from "../lib/imageLoader";
 
 // ── toolbar types ─────────────────────────────────────────────────────────────
@@ -41,7 +42,12 @@ const TOOLBAR: ToolbarEntry[] = [
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export default function Annotate() {
+interface Props {
+  asset: Asset;
+  onBack: () => void;
+}
+
+export default function Annotate({ asset, onBack }: Props) {
   const [images, setImages]                     = useState<ImageEntry[]>([]);
   const [currentIndex, setCurrentIndex]         = useState(0);
   const [classes, setClasses]                   = useState<ClassDef[]>([]);
@@ -190,9 +196,18 @@ export default function Annotate() {
         borderBottom: "1px solid var(--border)",
         background: "var(--surface)",
       }}>
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Projects</span>
+        <button
+          onClick={onBack}
+          style={{
+            display: "flex", alignItems: "center", gap: 4,
+            background: "none", border: "none", cursor: "pointer",
+            color: "var(--text-muted)", fontSize: 12, padding: 0, fontFamily: "inherit",
+          }}
+        >
+          <ArrowLeft size={12} /> Assets
+        </button>
         <ChevronRight size={12} color="var(--border)" />
-        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text)" }}>AUTONOMOUS_DRIVE_V4</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text)" }}>{asset.name}</span>
         <div style={{ width: 1, height: 16, background: "var(--border)" }} />
         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
           {images.length > 0 ? `${currentIndex + 1} / ${images.length}` : "No images"}

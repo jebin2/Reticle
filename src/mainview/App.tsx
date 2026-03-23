@@ -1,47 +1,39 @@
 import { useState } from "react";
 import Sidebar from "./components/Sidebar";
-import { type NavPage } from "./lib/types";
-import NewProjectModal from "./components/NewProjectModal";
-import Dashboard from "./pages/Dashboard";
-import Annotate from "./pages/Annotate";
+import { type NavPage, type Asset } from "./lib/types";
+import Overview   from "./pages/Overview";
+import Assets     from "./pages/Assets";
+import Annotate   from "./pages/Annotate";
+import Train      from "./pages/Train";
+import Inference  from "./pages/Inference";
+import Export     from "./pages/Export";
 
 export default function App() {
-  const [activePage, setActivePage] = useState<NavPage>("projects");
-  const [showNewProject, setShowNewProject] = useState(false);
+  const [activePage, setActivePage] = useState<NavPage>("overview");
+  const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
 
-  function handleCreateProject(name: string) {
-    // TODO: persist project via Bun IPC
-    console.log("Create project:", { name });
-    setShowNewProject(false);
+  function navigate(page: NavPage) {
+    setActivePage(page);
+    setActiveAsset(null);
+  }
+
+  function openAsset(asset: Asset) {
+    setActivePage("assets");
+    setActiveAsset(asset);
   }
 
   return (
     <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden" }}>
-      <Sidebar
-        activePage={activePage}
-        onNavigate={setActivePage}
-        onNewProject={() => setShowNewProject(true)}
-      />
+      <Sidebar activePage={activePage} onNavigate={navigate} />
 
       <main style={{ flex: 1, overflow: "hidden", display: "flex" }}>
-        {activePage === "projects"  && <Dashboard onNewProject={() => setShowNewProject(true)} />}
-        {activePage === "annotate"  && <Annotate />}
-        {(activePage === "train" || activePage === "inference" || activePage === "export") && (
-          <div style={{
-            flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--text-muted)", fontSize: 14,
-          }}>
-            {activePage.charAt(0).toUpperCase() + activePage.slice(1)} — coming soon
-          </div>
-        )}
+        {activePage === "overview"  && <Overview onNavigate={navigate} />}
+        {activePage === "assets"    && !activeAsset && <Assets onOpenAsset={openAsset} />}
+        {activePage === "assets"    && activeAsset  && <Annotate asset={activeAsset} onBack={() => setActiveAsset(null)} />}
+        {activePage === "train"     && <Train />}
+        {activePage === "inference" && <Inference />}
+        {activePage === "export"    && <Export />}
       </main>
-
-      {showNewProject && (
-        <NewProjectModal
-          onClose={() => setShowNewProject(false)}
-          onCreate={handleCreateProject}
-        />
-      )}
     </div>
   );
 }

@@ -1,18 +1,17 @@
-import { Layers, Tag, Cpu, Scan, Upload, Plus, BookOpen, LifeBuoy } from "lucide-react";
+import { LayoutDashboard, Layers, Cpu, Scan, Upload, BookOpen, LifeBuoy } from "lucide-react";
 import { type NavPage } from "../lib/types";
 
-interface SidebarProps {
+interface Props {
   activePage: NavPage;
   onNavigate: (page: NavPage) => void;
-  onNewProject: () => void;
 }
 
 const NAV_ITEMS: { id: NavPage; label: string; Icon: React.ElementType }[] = [
-  { id: "projects",  label: "Projects",  Icon: Layers },
-  { id: "annotate",  label: "Annotate",  Icon: Tag },
-  { id: "train",     label: "Train",     Icon: Cpu },
-  { id: "inference", label: "Inference", Icon: Scan },
-  { id: "export",    label: "Export",    Icon: Upload },
+  { id: "overview",   label: "Overview",   Icon: LayoutDashboard },
+  { id: "assets",     label: "Assets",     Icon: Layers },
+  { id: "train",      label: "Train",      Icon: Cpu },
+  { id: "inference",  label: "Inference",  Icon: Scan },
+  { id: "export",     label: "Export",     Icon: Upload },
 ];
 
 const FOOTER_LINKS: { label: string; Icon: React.ElementType }[] = [
@@ -20,17 +19,15 @@ const FOOTER_LINKS: { label: string; Icon: React.ElementType }[] = [
   { label: "Support",       Icon: LifeBuoy },
 ];
 
-export default function Sidebar({ activePage, onNavigate, onNewProject }: SidebarProps) {
+export default function Sidebar({ activePage, onNavigate }: Props) {
   return (
-    <aside
-      style={{
-        width: 220, minWidth: 220,
-        background: "var(--surface)",
-        borderRight: "1px solid var(--border)",
-        display: "flex", flexDirection: "column",
-        height: "100%",
-      }}
-    >
+    <aside style={{
+      width: 220, minWidth: 220,
+      background: "var(--surface)",
+      borderRight: "1px solid var(--border)",
+      display: "flex", flexDirection: "column",
+      height: "100%",
+    }}>
       {/* Logo */}
       <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -74,12 +71,8 @@ export default function Sidebar({ activePage, onNavigate, onNewProject }: Sideba
                 transition: "background 0.15s, color 0.15s",
                 marginBottom: 2,
               }}
-              onMouseEnter={e => {
-                if (!active) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
-              }}
-              onMouseLeave={e => {
-                if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              }}
+              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
             >
               <Icon size={15} strokeWidth={active ? 2 : 1.5} />
               {label}
@@ -87,37 +80,6 @@ export default function Sidebar({ activePage, onNavigate, onNewProject }: Sideba
           );
         })}
       </nav>
-
-      {/* New Project */}
-      <div style={{ padding: "8px", borderTop: "1px solid var(--border)" }}>
-        <button
-          onClick={onNewProject}
-          style={{
-            width: "100%",
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "8px 10px", borderRadius: 6,
-            border: "1px dashed var(--border)",
-            cursor: "pointer",
-            background: "transparent",
-            color: "var(--text-muted)",
-            fontSize: 13, fontWeight: 500,
-            transition: "border-color 0.15s, color 0.15s",
-          }}
-          onMouseEnter={e => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.borderColor = "var(--accent)";
-            el.style.color = "var(--accent)";
-          }}
-          onMouseLeave={e => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.borderColor = "var(--border)";
-            el.style.color = "var(--text-muted)";
-          }}
-        >
-          <Plus size={14} />
-          New Project
-        </button>
-      </div>
 
       {/* Footer links */}
       <div style={{ padding: "8px", borderTop: "1px solid var(--border)" }}>
