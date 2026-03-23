@@ -33,20 +33,25 @@ async function getTrainCommand(logPath: string): Promise<string[]> {
 	const log = (text: string) =>
 		appendFile(logPath, JSON.stringify({ type: "stderr", text }) + "\n").catch(() => {});
 
-	// Streams one output pipe (stdout or stderr) to the log, splitting on \n and \r.
+	// Streams one output pipe to the log, splitting on \n only.
+	// pip uses \r for byte-by-byte progress — splitting on \r would write
+	// thousands of entries for a 900MB download and stall the stream.
+	// The "Downloading X.whl (915 MB)" and "Installing..." lines all end with \n.
 	async function streamPipe(pipe: AsyncIterable<Uint8Array>): Promise<void> {
 		const decoder = new TextDecoder();
 		let buf = "";
 		for await (const chunk of pipe) {
 			buf += decoder.decode(chunk, { stream: true });
-			// pip uses \r for progress bars and \n for completed lines — handle both.
-			const lines = buf.split(/[\r\n]/);
+			const lines = buf.split("\n");
 			buf = lines.pop() ?? "";
 			for (const line of lines) {
-				if (line.trim()) await log(line.trim());
+				// Strip \r leftover and ANSI codes before logging.
+				const clean = line.replace(/\r/g, "").replace(/\x1b\[[0-9;]*m/g, "").trim();
+				if (clean) await log(clean);
 			}
 		}
-		if (buf.trim()) await log(buf.trim());
+		const clean = buf.replace(/\r/g, "").replace(/\x1b\[[0-9;]*m/g, "").trim();
+		if (clean) await log(clean);
 	}
 
 	// Runs a command, streams both stdout+stderr to the log, checks exit code.
