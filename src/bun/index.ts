@@ -373,8 +373,11 @@ const rpc = defineElectrobunRPC("bun", {
 			runInference: async ({ imagePath, outputPath, confidence }: {
 				imagePath: string; outputPath: string; confidence: number;
 			}) => {
-				if (!(await Bun.file(VENV_READY_MARKER).exists())) {
-					return { detections: [], inferenceMs: 0, error: "Python environment not ready. Train a model first to install dependencies." };
+				const inferLogPath = join(YOLO_DIR, "infer-setup.log");
+				try {
+					await prepareEnvironment(inferLogPath, "inference");
+				} catch (err) {
+					return { detections: [], inferenceMs: 0, error: `Environment setup failed: ${(err as Error).message}` };
 				}
 				const modelPath = join(outputPath, "weights", "weights", "best.pt");
 				if (!(await Bun.file(modelPath).exists())) {
