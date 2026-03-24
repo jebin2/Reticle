@@ -233,35 +233,26 @@ function NewAssetModal({ assets, onClose, onCreate }: {
   onClose: () => void;
   onCreate: (name: string, storagePath: string) => void;
 }) {
-  const [name, setName]               = useState("");
-  const [storagePath, setStoragePath] = useState("");
-  const [pathEdited, setPathEdited]   = useState(false);
-  const [picking, setPicking]         = useState(false);
+  const [name, setName]           = useState("");
+  const [baseFolder, setBaseFolder] = useState("~/.reticle/assets");
+  const [picking, setPicking]     = useState(false);
 
   const nameConflict = name.trim()
     ? assets.some(a => a.name.toLowerCase() === name.trim().toLowerCase())
     : false;
 
+  const slug = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const storagePath = slug ? `${baseFolder}/${slug}` : "";
+
   function handleNameChange(val: string) {
     setName(val);
-    if (!pathEdited) {
-      const slug = val.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-      setStoragePath(slug ? `~/.reticle/assets/${slug}` : "");
-    }
   }
 
   async function pickFolder() {
     setPicking(true);
     try {
       const { canceled, path } = await getRPC().request.openFolderPathDialog({});
-      if (!canceled && path) {
-        setStoragePath(path);
-        setPathEdited(true);
-        if (!name.trim()) {
-          const folderName = path.split("/").filter(Boolean).pop() ?? "";
-          setName(folderName);
-        }
-      }
+      if (!canceled && path) setBaseFolder(path);
     } finally {
       setPicking(false);
     }
@@ -269,8 +260,8 @@ function NewAssetModal({ assets, onClose, onCreate }: {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !storagePath.trim() || nameConflict) return;
-    onCreate(name.trim(), storagePath.trim());
+    if (!storagePath || nameConflict) return;
+    onCreate(name.trim(), storagePath);
   }
 
   return (
@@ -309,12 +300,9 @@ function NewAssetModal({ assets, onClose, onCreate }: {
 
           <Field label="Storage Folder">
             <div style={{ display: "flex", gap: 8 }}>
-              <input
-                value={storagePath}
-                onChange={e => { setStoragePath(e.target.value); setPathEdited(true); }}
-                placeholder="~/.reticle/assets/my-asset"
-                style={{ ...inputStyle, flex: 1, fontFamily: "monospace", fontSize: 11 }}
-              />
+              <div style={{ ...inputStyle, flex: 1, fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>
+                {baseFolder}
+              </div>
               <button
                 type="button"
                 onClick={pickFolder}
@@ -329,6 +317,11 @@ function NewAssetModal({ assets, onClose, onCreate }: {
                 <FolderOpen size={13} /> Browse
               </button>
             </div>
+            {slug && (
+              <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace", marginTop: 5 }}>
+                → {storagePath}
+              </div>
+            )}
           </Field>
 
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
@@ -345,13 +338,13 @@ function NewAssetModal({ assets, onClose, onCreate }: {
             </button>
             <button
               type="submit"
-              disabled={!name.trim() || !storagePath.trim() || nameConflict}
+              disabled={!storagePath || nameConflict}
               style={{
                 flex: 1, padding: "9px", borderRadius: 7, border: "none",
-                background: name.trim() && storagePath.trim() && !nameConflict ? "var(--accent)" : "var(--border)",
-                color: name.trim() && storagePath.trim() && !nameConflict ? "#fff" : "var(--text-muted)",
+                background: storagePath && !nameConflict ? "var(--accent)" : "var(--border)",
+                color: storagePath && !nameConflict ? "#fff" : "var(--text-muted)",
                 fontSize: 13, fontWeight: 600,
-                cursor: name.trim() && storagePath.trim() && !nameConflict ? "pointer" : "not-allowed",
+                cursor: storagePath && !nameConflict ? "pointer" : "not-allowed",
                 fontFamily: "inherit",
               }}
             >

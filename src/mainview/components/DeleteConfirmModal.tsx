@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function DeleteConfirmModal({ title, description, folderPath, folderLabel, onConfirm, onCancel }: Props) {
-  const [deleteFolder, setDeleteFolder] = useState(false);
+  const [deleteFolder, setDeleteFolder] = useState(true);
   const [busy, setBusy] = useState(false);
 
   async function handleDelete() {

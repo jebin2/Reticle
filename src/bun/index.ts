@@ -516,7 +516,7 @@ const rpc = defineElectrobunRPC("bun", {
 
 			deleteFolder: async ({ folderPath }: { folderPath: string }) => {
 				try {
-					await rm(folderPath.replace(/^~/, process.env.HOME ?? ""), { recursive: true, force: true });
+					await rm(exp(folderPath), { recursive: true, force: true });
 				} catch {}
 				return {};
 			},

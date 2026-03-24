@@ -1041,13 +1041,15 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
   const [batchSize, setBatchSize]           = useState(DEFAULT_BATCH);
   const [imgsz, setImgsz]                   = useState(DEFAULT_IMGSZ);
   const [device, setDevice]                 = useState(DEFAULT_DEVICE);
-  const [outputPath, setOutputPath]         = useState("");
-  const [outputEdited, setOutputEdited]     = useState(false);
+  const [baseFolder, setBaseFolder]         = useState("~/.reticle/runs");
   const [picking, setPicking]               = useState(false);
 
   const nameConflict = name.trim()
     ? runs.some(r => r.name.toLowerCase() === name.trim().toLowerCase())
     : false;
+
+  const slug = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const outputPath = slug ? `${baseFolder}/${slug}` : "";
 
   // Merged class list: stable insertion order, deduplicated, recomputed only when selection changes.
   const classMap = useMemo(() => [...new Map(
@@ -1066,7 +1068,6 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
           ? `${first.name.toLowerCase().replace(/\s+/g, "-")}-${baseModel}-v1`
           : "";
         setName(suggested);
-        if (!outputEdited) setOutputPath(suggested ? `~/.reticle/runs/${suggested}` : "");
       }
       return next;
     });
@@ -1075,14 +1076,13 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
   function handleNameChange(val: string) {
     setName(val);
     setNameEdited(true);
-    if (!outputEdited) setOutputPath(val.trim() ? `~/.reticle/runs/${val.trim()}` : "");
   }
 
   async function pickFolder() {
     setPicking(true);
     try {
       const { canceled, path } = await getRPC().request.openFolderPathDialog({});
-      if (!canceled && path) { setOutputPath(path); setOutputEdited(true); }
+      if (!canceled && path) setBaseFolder(path);
     } finally {
       setPicking(false);
     }
@@ -1090,7 +1090,7 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || selectedAssets.length === 0 || !outputPath.trim() || nameConflict) return;
+    if (!outputPath || selectedAssets.length === 0 || nameConflict) return;
     onCreate({
       id:         crypto.randomUUID(),
       name:       name.trim(),
@@ -1101,13 +1101,13 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
       batchSize,
       imgsz,
       device,
-      outputPath: outputPath.trim(),
+      outputPath,
       status:     "idle",
       updatedAt:  "just now",
     });
   }
 
-  const valid = name.trim() && selectedAssets.length > 0 && outputPath.trim() && !nameConflict;
+  const valid = outputPath && selectedAssets.length > 0 && !nameConflict;
 
   return (
     <div
@@ -1221,12 +1221,9 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
 
             <Field label="Output Folder">
               <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  value={outputPath}
-                  onChange={e => { setOutputPath(e.target.value); setOutputEdited(true); }}
-                  placeholder="~/.reticle/runs/my-run"
-                  style={{ ...inputStyle, flex: 1, fontFamily: "monospace", fontSize: 11 }}
-                />
+                <div style={{ ...inputStyle, flex: 1, fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>
+                  {baseFolder}
+                </div>
                 <button
                   type="button"
                   onClick={pickFolder}
@@ -1241,6 +1238,11 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
                   <FolderOpen size={13} /> Browse
                 </button>
               </div>
+              {slug && (
+                <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace", marginTop: 5 }}>
+                  → {outputPath}
+                </div>
+              )}
             </Field>
 
             <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
