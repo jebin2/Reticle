@@ -454,14 +454,18 @@ function ActionBtn({ Icon, color, title, onClick, danger }: {
 
 // ── Config strip helpers ───────────────────────────────────────────────────────
 
-function ConfigStatField({ label, value }: { label: string; value: string }) {
+function ConfigStatField({ label, value, width }: { label: string; value: string; width?: number }) {
   return (
-    <div>
+    <div style={{ flexShrink: 0, width }}>
       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 12, color: "var(--text)", fontFamily: "monospace" }}>{value}</div>
+      <div style={{ ...CONFIG_VALUE_STYLE, height: 18 }}>{value}</div>
     </div>
   );
 }
+
+const CONFIG_VALUE_STYLE: React.CSSProperties = {
+  fontSize: 12, lineHeight: "18px", fontFamily: "monospace", color: "var(--text)",
+};
 
 function ConfigNumField({ label, value, min, max, editable, format, onChange }: {
   label: string; value: number; min: number; max: number;
@@ -478,32 +482,29 @@ function ConfigNumField({ label, value, min, max, editable, format, onChange }: 
   }
 
   return (
-    <div>
+    <div style={{ flexShrink: 0, width: 58 }}>
       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
-      {editing ? (
+      <div style={{ height: 18, position: "relative" }}>
         <input
-          autoFocus
-          value={draft}
+          value={editing ? draft : ""}
           onChange={e => setDraft(e.target.value)}
+          onFocus={() => { setDraft(String(value)); setEditing(true); }}
           onBlur={() => commit(draft)}
-          onKeyDown={e => { if (e.key === "Enter") commit(draft); if (e.key === "Escape") setEditing(false); }}
+          onKeyDown={e => { if (e.key === "Enter") commit(draft); if (e.key === "Escape") { setEditing(false); (e.target as HTMLInputElement).blur(); } }}
+          readOnly={!editing}
           style={{
-            width: 60, padding: "1px 4px", fontSize: 12, fontFamily: "monospace",
-            background: "var(--bg)", border: "1px solid var(--accent)", borderRadius: 4,
-            color: "var(--text)", outline: "none",
+            ...CONFIG_VALUE_STYLE,
+            position: "absolute", inset: 0, width: "100%",
+            padding: 0, margin: 0, background: "transparent",
+            border: "none", borderBottom: editing ? "1px solid var(--accent)" : editable ? "1px dashed var(--border)" : "1px solid transparent",
+            outline: "none", cursor: editable ? "text" : "default",
+            color: editing ? "var(--text)" : "transparent",
           }}
         />
-      ) : (
-        <div
-          onClick={() => { if (editable) { setDraft(String(value)); setEditing(true); } }}
-          title={editable ? "Click to edit" : undefined}
-          style={{
-            fontSize: 12, color: "var(--text)", fontFamily: "monospace",
-            cursor: editable ? "text" : "default",
-            borderBottom: editable ? "1px dashed var(--border)" : "1px solid transparent",
-          }}
-        >{display}</div>
-      )}
+        {!editing && (
+          <div style={{ ...CONFIG_VALUE_STYLE, pointerEvents: "none" }}>{display}</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -525,19 +526,21 @@ function ConfigSelectField({ label, value, options, editable, onChange }: {
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} style={{ position: "relative", flexShrink: 0, width: 72 }}>
       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
-      <div
-        onClick={() => { if (editable) setOpen(o => !o); }}
-        title={editable ? "Click to edit" : undefined}
-        style={{
-          fontSize: 12, color: "var(--text)", fontFamily: "monospace",
-          cursor: editable ? "pointer" : "default", display: "flex", alignItems: "center", gap: 4,
-          borderBottom: editable ? "1px dashed var(--border)" : "1px solid transparent",
-        }}
-      >
-        {value}
-        {editable && <ChevronDown size={10} style={{ opacity: 0.5 }} />}
+      <div style={{ height: 18 }}>
+        <div
+          onClick={() => { if (editable) setOpen(o => !o); }}
+          title={editable ? "Click to edit" : undefined}
+          style={{
+            ...CONFIG_VALUE_STYLE,
+            cursor: editable ? "pointer" : "default", display: "flex", alignItems: "center", gap: 4,
+            borderBottom: editable ? "1px dashed var(--border)" : "1px solid transparent",
+          }}
+        >
+          {value}
+          {editable && <ChevronDown size={10} style={{ opacity: 0.5 }} />}
+        </div>
       </div>
       {open && (
         <div style={{
@@ -715,7 +718,7 @@ function RunDetailView({ run, progress, onClose, onUpdate, onStartFresh, onResum
             background: "var(--surface)",
           }}>
             {/* Static: Model */}
-            <ConfigStatField label="Model" value={run.baseModel} />
+            <ConfigStatField label="Model" value={run.baseModel} width={72} />
 
             {/* Editable: Epochs */}
             <ConfigNumField label="Epochs" value={run.epochs} min={1} max={10000} editable={editable}
@@ -736,7 +739,7 @@ function RunDetailView({ run, progress, onClose, onUpdate, onStartFresh, onResum
               onChange={v => onUpdate({ device: v })} />
 
             {/* Static: Classes */}
-            <ConfigStatField label="Classes" value={String(run.classMap.length)} />
+            <ConfigStatField label="Classes" value={String(run.classMap.length)} width={58} />
           </div>
         );
       })()}
