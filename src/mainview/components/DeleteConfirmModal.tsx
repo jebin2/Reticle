@@ -58,18 +58,29 @@ export default function DeleteConfirmModal({ title, description, folderPath, fol
         </p>
 
         {folderPath && (
-          <label style={{
-            display: "flex", alignItems: "flex-start", gap: 10,
-            padding: "10px 12px", borderRadius: 7,
-            border: "1px solid var(--border)", background: "var(--bg)",
-            cursor: "pointer", marginBottom: 20,
-          }}>
-            <input
-              type="checkbox"
-              checked={deleteFolder}
-              onChange={e => setDeleteFolder(e.target.checked)}
-              style={{ accentColor: "#EF4444", marginTop: 1, flexShrink: 0 }}
-            />
+          <div
+            onClick={() => setDeleteFolder(v => !v)}
+            style={{
+              display: "flex", alignItems: "flex-start", gap: 10,
+              padding: "10px 12px", borderRadius: 7, cursor: "pointer", marginBottom: 20,
+              border: `1px solid ${deleteFolder ? "#EF444466" : "var(--border)"}`,
+              background: deleteFolder ? "rgba(239,68,68,0.06)" : "var(--bg)",
+              transition: "border-color 0.15s, background 0.15s",
+            }}
+          >
+            <div style={{
+              width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 1,
+              border: `1.5px solid ${deleteFolder ? "#EF4444" : "var(--border)"}`,
+              background: deleteFolder ? "#EF4444" : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.15s, border-color 0.15s",
+            }}>
+              {deleteFolder && (
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
             <div>
               <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 500 }}>
                 Also delete folder from disk
@@ -78,7 +89,7 @@ export default function DeleteConfirmModal({ title, description, folderPath, fol
                 {folderLabel}
               </div>
             </div>
-          </label>
+          </div>
         )}
 
         <div style={{ display: "flex", gap: 10 }}>
