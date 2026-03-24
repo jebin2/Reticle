@@ -1151,8 +1151,9 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
                   const selected = selectedAssets.includes(a.id);
                   const ready    = a.annotatedCount > 0;
                   return (
-                    <label
+                    <div
                       key={a.id}
+                      onClick={() => ready && toggleAsset(a.id)}
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "8px 10px", borderRadius: 6, cursor: ready ? "pointer" : "default",
@@ -1162,13 +1163,19 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
                         opacity: ready ? 1 : 0.5,
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        disabled={!ready}
-                        onChange={() => toggleAsset(a.id)}
-                        style={{ accentColor: "var(--accent)" }}
-                      />
+                      <div style={{
+                        width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                        border: `1.5px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+                        background: selected ? "var(--accent)" : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.15s, border-color 0.15s",
+                      }}>
+                        {selected && (
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                            <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{a.name}</div>
                         <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
@@ -1176,7 +1183,7 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
                           {!ready && <span style={{ color: "#EF4444", marginLeft: 6 }}>— no annotations</span>}
                         </div>
                       </div>
-                    </label>
+                    </div>
                   );
                 })}
               </div>
