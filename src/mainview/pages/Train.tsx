@@ -1045,7 +1045,8 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
   const [picking, setPicking]               = useState(false);
 
   const nameConflict = name.trim()
-    ? runs.some(r => r.name.toLowerCase() === name.trim().toLowerCase())
+    ? [...runs.map(r => r.name), ...assets.map(a => a.name)]
+        .some(n => n.toLowerCase() === name.trim().toLowerCase())
     : false;
 
   const slug = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -1140,7 +1141,7 @@ function NewRunModal({ assets, runs, onClose, onCreate }: {
               />
               {nameConflict && (
                 <div style={{ fontSize: 11, color: "#EF4444", marginTop: 4 }}>
-                  A run with this name already exists.
+                  Name already used by a run or asset.
                 </div>
               )}
             </Field>

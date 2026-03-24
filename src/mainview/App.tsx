@@ -63,6 +63,7 @@ export default function App() {
         {activePage === "assets"    && !activeAsset && (
           <Assets
             assets={assets}
+            runs={runs}
             onAssetsChange={setAssets}
             onOpenAsset={openAsset}
           />

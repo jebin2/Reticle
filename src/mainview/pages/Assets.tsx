@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { Plus, Trash2, FolderOpen, Tag, Image } from "lucide-react";
-import { type Asset } from "../lib/types";
+import { type Asset, type TrainingRun } from "../lib/types";
 import { CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
 
 interface Props {
   assets: Asset[];
+  runs: TrainingRun[];
   onAssetsChange: (assets: Asset[]) => void;
   onOpenAsset: (asset: Asset) => void;
 }
 
-export default function Assets({ assets, onAssetsChange, onOpenAsset }: Props) {
+export default function Assets({ assets, runs, onAssetsChange, onOpenAsset }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Asset | null>(null);
 
@@ -88,7 +89,7 @@ export default function Assets({ assets, onAssetsChange, onOpenAsset }: Props) {
       </div>
 
       {showModal && (
-        <NewAssetModal assets={assets} onClose={() => setShowModal(false)} onCreate={handleCreate} />
+        <NewAssetModal assets={assets} runs={runs} onClose={() => setShowModal(false)} onCreate={handleCreate} />
       )}
 
       {deleteTarget && (
@@ -228,17 +229,19 @@ function MetaStat({ icon: Icon, label, title }: { icon: React.ElementType; label
 
 // ── NewAssetModal ──────────────────────────────────────────────────────────────
 
-function NewAssetModal({ assets, onClose, onCreate }: {
+function NewAssetModal({ assets, runs, onClose, onCreate }: {
   assets: Asset[];
+  runs: TrainingRun[];
   onClose: () => void;
   onCreate: (name: string, storagePath: string) => void;
 }) {
-  const [name, setName]           = useState("");
+  const [name, setName]             = useState("");
   const [baseFolder, setBaseFolder] = useState("~/.reticle/assets");
-  const [picking, setPicking]     = useState(false);
+  const [picking, setPicking]       = useState(false);
 
   const nameConflict = name.trim()
-    ? assets.some(a => a.name.toLowerCase() === name.trim().toLowerCase())
+    ? [...assets.map(a => a.name), ...runs.map(r => r.name)]
+        .some(n => n.toLowerCase() === name.trim().toLowerCase())
     : false;
 
   const slug = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -293,7 +296,7 @@ function NewAssetModal({ assets, onClose, onCreate }: {
             />
             {nameConflict && (
               <div style={{ fontSize: 11, color: "#EF4444", marginTop: 4 }}>
-                An asset with this name already exists.
+                Name already used by an asset or run.
               </div>
             )}
           </Field>
