@@ -21,7 +21,7 @@ import sys
 FORMAT_DEPS: dict[str, list[str]] = {
     "onnx":     ["onnx", "onnxruntime", "onnxslim"],
     "openvino": ["openvino"],
-    "coreml":   ["coremltools"],
+    "coreml":   ["coremltools>=7.2", "numpy>=1.23.0,<2.0"],
     "tflite":   ["onnx2tf", "onnx", "onnxruntime", "onnxslim", "sng4onnx", "flatbuffers"],
 }
 
@@ -31,7 +31,7 @@ def ensure_deps(fmt: str):
     if not deps:
         return
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--quiet", *deps],
+        [sys.executable, "-m", "pip", "install", "--quiet", "--upgrade", *deps],
         check=True,
     )
 
