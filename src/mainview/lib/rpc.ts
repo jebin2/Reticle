@@ -112,6 +112,10 @@ type RPCSchema = {
         params:   { srcPath: string };
         response: { savedPath: string; error: string | null };
       };
+      deleteFolder: {
+        params:   { folderPath: string };
+        response: Record<string, never>;
+      };
       revealInFilesystem: {
         params:   { path: string };
         response: Record<string, never>;

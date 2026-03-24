@@ -3,6 +3,7 @@ import { Plus, Trash2, FolderOpen, Tag, Image } from "lucide-react";
 import { type Asset } from "../lib/types";
 import { CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 
 interface Props {
   assets: Asset[];
@@ -12,6 +13,7 @@ interface Props {
 
 export default function Assets({ assets, onAssetsChange, onOpenAsset }: Props) {
   const [showModal, setShowModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Asset | null>(null);
 
   function handleCreate(name: string, storagePath: string) {
     const asset: Asset = {
@@ -57,7 +59,7 @@ export default function Assets({ assets, onAssetsChange, onOpenAsset }: Props) {
               key={asset.id}
               asset={asset}
               onClick={() => onOpenAsset(asset)}
-              onDelete={() => onAssetsChange(assets.filter(a => a.id !== asset.id))}
+              onDelete={() => setDeleteTarget(asset)}
             />
           ))}
 
@@ -87,6 +89,17 @@ export default function Assets({ assets, onAssetsChange, onOpenAsset }: Props) {
 
       {showModal && (
         <NewAssetModal assets={assets} onClose={() => setShowModal(false)} onCreate={handleCreate} />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title="Delete Asset"
+          description={`"${deleteTarget.name}" will be removed from YOLOStudio. This cannot be undone.`}
+          folderPath={deleteTarget.storagePath}
+          folderLabel={deleteTarget.storagePath}
+          onConfirm={() => { onAssetsChange(assets.filter(a => a.id !== deleteTarget.id)); setDeleteTarget(null); }}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

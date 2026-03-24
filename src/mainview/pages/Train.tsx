@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Plus, FolderOpen, Cpu, Play, Pause, Square, Trash2, Terminal, ChevronDown } from "lucide-react";
 import DetailPageHeader, { HeaderBtn } from "../components/DetailPageHeader";
+import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import { type TrainingRun, type Asset } from "../lib/types";
 import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, BASE_MODELS, DEVICES, CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
@@ -40,6 +41,7 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
   const [showModal, setShowModal]         = useState(false);
   const [detailRun, setDetailRun]         = useState<TrainingRun | null>(null);
   const [runProgress, setRunProgress]     = useState<Record<string, LogProgress>>({});
+  const [deleteTarget, setDeleteTarget]   = useState<TrainingRun | null>(null);
 
   // Keep a stable ref so the polling interval always sees the latest runs/callback.
   const runsRef          = useRef(runs);
@@ -208,7 +210,7 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
               onResume={() => handleStart(run, false)}
               onPause={() => handlePause(run)}
               onStop={() => handleStop(run)}
-              onDelete={() => onRunsChange(runs.filter(r => r.id !== run.id))}
+              onDelete={() => setDeleteTarget(run)}
             />
           ))}
 
@@ -238,6 +240,17 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
 
       {showModal && (
         <NewRunModal assets={assets} runs={runs} onClose={() => setShowModal(false)} onCreate={handleCreate} />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          title="Delete Training Run"
+          description={`"${deleteTarget.name}" will be removed from YOLOStudio. This cannot be undone.`}
+          folderPath={deleteTarget.outputPath}
+          folderLabel={deleteTarget.outputPath}
+          onConfirm={() => { onRunsChange(runs.filter(r => r.id !== deleteTarget.id)); setDeleteTarget(null); }}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

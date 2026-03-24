@@ -473,6 +473,13 @@ const rpc = defineElectrobunRPC("bun", {
 				return { savedPath: destPath, error: null };
 			},
 
+			deleteFolder: async ({ folderPath }: { folderPath: string }) => {
+				try {
+					await rm(folderPath.replace(/^~/, process.env.HOME ?? ""), { recursive: true, force: true });
+				} catch {}
+				return {};
+			},
+
 			revealInFilesystem: async ({ path }: { path: string }) => {
 				const dir = path.split("/").slice(0, -1).join("/") || "/";
 				const cmd = process.platform === "darwin"
