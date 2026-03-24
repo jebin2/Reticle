@@ -165,6 +165,7 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
         run={liveRun}
         progress={runProgress[detailRun.id]}
         onClose={() => setDetailRun(null)}
+        onUpdate={patch => onRunsChange(runs.map(r => r.id === liveRun.id ? { ...r, ...patch } : r))}
         onStartFresh={() => handleStart(liveRun, true)}
         onResume={() => handleStart(liveRun, false)}
         onPause={() => handlePause(liveRun)}
@@ -451,12 +452,127 @@ function ActionBtn({ Icon, color, title, onClick, danger }: {
 }
 
 
+// ── Config strip helpers ───────────────────────────────────────────────────────
+
+function ConfigStatField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 12, color: "var(--text)", fontFamily: "monospace" }}>{value}</div>
+    </div>
+  );
+}
+
+function ConfigNumField({ label, value, min, max, editable, format, onChange }: {
+  label: string; value: number; min: number; max: number;
+  editable: boolean; format?: (v: number) => string; onChange: (v: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const display = format ? format(value) : String(value);
+
+  function commit(raw: string) {
+    const n = parseInt(raw, 10);
+    if (!isNaN(n) && n >= min && n <= max) onChange(n);
+    setEditing(false);
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={() => commit(draft)}
+          onKeyDown={e => { if (e.key === "Enter") commit(draft); if (e.key === "Escape") setEditing(false); }}
+          style={{
+            width: 60, padding: "1px 4px", fontSize: 12, fontFamily: "monospace",
+            background: "var(--bg)", border: "1px solid var(--accent)", borderRadius: 4,
+            color: "var(--text)", outline: "none",
+          }}
+        />
+      ) : (
+        <div
+          onClick={() => { if (editable) { setDraft(String(value)); setEditing(true); } }}
+          title={editable ? "Click to edit" : undefined}
+          style={{
+            fontSize: 12, color: "var(--text)", fontFamily: "monospace",
+            cursor: editable ? "text" : "default",
+            borderBottom: editable ? "1px dashed var(--border)" : "1px solid transparent",
+          }}
+        >{display}</div>
+      )}
+    </div>
+  );
+}
+
+function ConfigSelectField({ label, value, options, editable, onChange }: {
+  label: string; value: string; options: string[];
+  editable: boolean; onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
+      <div
+        onClick={() => { if (editable) setOpen(o => !o); }}
+        title={editable ? "Click to edit" : undefined}
+        style={{
+          fontSize: 12, color: "var(--text)", fontFamily: "monospace",
+          cursor: editable ? "pointer" : "default", display: "flex", alignItems: "center", gap: 4,
+          borderBottom: editable ? "1px dashed var(--border)" : "1px solid transparent",
+        }}
+      >
+        {value}
+        {editable && <ChevronDown size={10} style={{ opacity: 0.5 }} />}
+      </div>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200, minWidth: 90,
+          background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.4)", overflow: "hidden",
+        }}>
+          {options.map(opt => (
+            <div
+              key={opt}
+              onClick={() => { onChange(opt); setOpen(false); }}
+              style={{
+                padding: "7px 10px", fontSize: 12, fontFamily: "monospace", cursor: "pointer",
+                color: opt === value ? "var(--accent)" : "var(--text)",
+                background: opt === value ? "rgba(59,130,246,0.08)" : "transparent",
+              }}
+              onMouseEnter={e => { if (opt !== value) (e.currentTarget as HTMLDivElement).style.background = "var(--bg)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = opt === value ? "rgba(59,130,246,0.08)" : "transparent"; }}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── RunDetailView ──────────────────────────────────────────────────────────────
 
-function RunDetailView({ run, progress, onClose, onStartFresh, onResume, onPause, onStop }: {
+function RunDetailView({ run, progress, onClose, onUpdate, onStartFresh, onResume, onPause, onStop }: {
   run: TrainingRun;
   progress?: LogProgress;
   onClose: () => void;
+  onUpdate: (patch: Partial<TrainingRun>) => void;
   onStartFresh: () => void;
   onResume: () => void;
   onPause: () => void;
@@ -590,25 +706,40 @@ function RunDetailView({ run, progress, onClose, onStartFresh, onResume, onPause
       />
 
       {/* ── Config strip ── */}
-      <div style={{
-        padding: "10px 24px", borderBottom: "1px solid var(--border)",
-        display: "flex", gap: 28, alignItems: "center", flexShrink: 0, flexWrap: "wrap",
-        background: "var(--surface)",
-      }}>
-        {[
-          ["Model",   run.baseModel],
-          ["Epochs",  String(run.epochs)],
-          ["Batch",   run.batchSize === -1 ? "auto" : String(run.batchSize)],
-          ["Img",     `${run.imgsz}px`],
-          ["Device",  run.device],
-          ["Classes", String(run.classMap.length)],
-        ].map(([k, v]) => (
-          <div key={k}>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{k}</div>
-            <div style={{ fontSize: 12, color: "var(--text)", fontFamily: "monospace" }}>{v}</div>
+      {(() => {
+        const editable = run.status === "idle" || run.status === "paused";
+        return (
+          <div style={{
+            padding: "10px 24px", borderBottom: "1px solid var(--border)",
+            display: "flex", gap: 28, alignItems: "center", flexShrink: 0, flexWrap: "wrap",
+            background: "var(--surface)",
+          }}>
+            {/* Static: Model */}
+            <ConfigStatField label="Model" value={run.baseModel} />
+
+            {/* Editable: Epochs */}
+            <ConfigNumField label="Epochs" value={run.epochs} min={1} max={10000} editable={editable}
+              onChange={v => onUpdate({ epochs: v })} />
+
+            {/* Editable: Batch */}
+            <ConfigNumField label="Batch" value={run.batchSize} min={-1} max={1024} editable={editable}
+              format={v => v === -1 ? "auto" : String(v)}
+              onChange={v => onUpdate({ batchSize: v })} />
+
+            {/* Editable: Img */}
+            <ConfigNumField label="Img" value={run.imgsz} min={32} max={1280} editable={editable}
+              format={v => `${v}px`}
+              onChange={v => onUpdate({ imgsz: v })} />
+
+            {/* Editable: Device */}
+            <ConfigSelectField label="Device" value={run.device} options={DEVICES} editable={editable}
+              onChange={v => onUpdate({ device: v })} />
+
+            {/* Static: Classes */}
+            <ConfigStatField label="Classes" value={String(run.classMap.length)} />
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* ── Main area: chart (left) + metrics (right) ── */}
       <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 280px", gap: 0, overflow: "hidden" }}>
