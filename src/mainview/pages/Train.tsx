@@ -163,6 +163,7 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
     return (
       <RunDetailView
         run={liveRun}
+        assets={assets}
         progress={runProgress[detailRun.id]}
         onClose={() => setDetailRun(null)}
         onStartFresh={() => handleStart(liveRun, true)}
@@ -438,8 +439,9 @@ function ActionBtn({ Icon, color, title, onClick, danger }: {
 
 // ── RunDetailView ──────────────────────────────────────────────────────────────
 
-function RunDetailView({ run, progress, onClose, onStartFresh, onResume, onPause, onStop }: {
+function RunDetailView({ run, assets, progress, onClose, onStartFresh, onResume, onPause, onStop }: {
   run: TrainingRun;
+  assets: Asset[];
   progress?: LogProgress;
   onClose: () => void;
   onStartFresh: () => void;
@@ -739,6 +741,35 @@ function RunDetailView({ run, progress, onClose, onStartFresh, onResume, onPause
               </div>
             ))}
           </div>
+
+          {/* Dataset card */}
+          {(() => {
+            const runAssets    = assets.filter(a => run.assetIds.includes(a.id));
+            const totalImages  = runAssets.reduce((s, a) => s + a.annotatedCount, 0);
+            return (
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-muted)", marginBottom: 12 }}>
+                  Dataset
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Annotated images</span>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700, color: "var(--text)" }}>{totalImages}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Classes</span>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text)" }}>{run.classMap.length}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+                  {run.classMap.map((cls, i) => (
+                    <div key={cls} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, flexShrink: 0, background: CLASS_COLORS[i % CLASS_COLORS.length] }} />
+                      <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cls}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
             <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--text-muted)", marginBottom: 8 }}>
