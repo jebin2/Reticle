@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { type BBox, type ClassDef, type AnnotateTool, clampBBox } from "../lib/annotationTypes";
+import { type BBox, type ClassDef, type AnnotateTool, clampBBox, clampPt, bboxToPoints, pointsToBbox } from "../lib/annotationTypes";
 
 interface Props {
   tool: AnnotateTool;
@@ -536,17 +536,10 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
   function finishPolygon() {
     const normPts = polygonPointsRef.current;
     if (normPts.length < 3) return;
-    const xs = normPts.map(p => p.x);
-    const ys = normPts.map(p => p.y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
     const newAnn: BBox = {
       id:         crypto.randomUUID(),
       classIndex: activeClassIndexRef.current,
-      cx:         (minX + maxX) / 2,
-      cy:         (minY + maxY) / 2,
-      w:          maxX - minX,
-      h:          maxY - minY,
+      ...pointsToBbox(normPts),
       points:     normPts,
     };
     onAnnotationsChangeRef.current([...annotationsRef.current, newAnn]);
@@ -677,10 +670,7 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
 
         // Add new point (normalized image coords)
         const imgPos = canvasToImage(clamped.x, clamped.y);
-        const normPt = {
-          x: Math.max(0, Math.min(1, imgPos.x / iw)),
-          y: Math.max(0, Math.min(1, imgPos.y / ih)),
-        };
+        const normPt = { x: clampPt(imgPos.x / iw), y: clampPt(imgPos.y / ih) };
         polygonPointsRef.current = [...pts, normPt];
         redraw();
         return;
@@ -710,20 +700,8 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
         const dy = (currImg.y - startImg.y) / ih;
 
         if (orig.points && orig.points.length >= 3) {
-          const newPoints = orig.points.map(p => ({
-            x: Math.max(0, Math.min(1, p.x + dx)),
-            y: Math.max(0, Math.min(1, p.y + dy)),
-          }));
-          const xs = newPoints.map(p => p.x);
-          const ys = newPoints.map(p => p.y);
-          const minX = Math.min(...xs), maxX = Math.max(...xs);
-          const minY = Math.min(...ys), maxY = Math.max(...ys);
-          previewAnnRef.current = {
-            ...orig,
-            cx: (minX + maxX) / 2, cy: (minY + maxY) / 2,
-            w: maxX - minX, h: maxY - minY,
-            points: newPoints,
-          };
+          const newPoints = orig.points.map(p => ({ x: clampPt(p.x + dx), y: clampPt(p.y + dy) }));
+          previewAnnRef.current = { ...orig, ...pointsToBbox(newPoints), points: newPoints };
         } else {
           const newCx = orig.cx + dx;
           const newCy = orig.cy + dy;
@@ -739,20 +717,9 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
         const imgCurr = canvasToImage(pos.x, pos.y);
         const vi = dragVertexIndexRef.current;
         const newPts = orig.points!.map((p, i) =>
-          i === vi
-            ? { x: Math.max(0, Math.min(1, imgCurr.x / iw)), y: Math.max(0, Math.min(1, imgCurr.y / ih)) }
-            : p
+          i === vi ? { x: clampPt(imgCurr.x / iw), y: clampPt(imgCurr.y / ih) } : p
         );
-        const xs = newPts.map(p => p.x);
-        const ys = newPts.map(p => p.y);
-        const minX = Math.min(...xs), maxX = Math.max(...xs);
-        const minY = Math.min(...ys), maxY = Math.max(...ys);
-        previewAnnRef.current = {
-          ...orig,
-          cx: (minX + maxX) / 2, cy: (minY + maxY) / 2,
-          w: maxX - minX, h: maxY - minY,
-          points: newPts,
-        };
+        previewAnnRef.current = { ...orig, ...pointsToBbox(newPts), points: newPts };
         redraw();
         return;
       }
@@ -778,12 +745,10 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
         if (b - t < MIN_BOX_PX) { if (c === 0 || c === 1) t = b - MIN_BOX_PX; else b = t + MIN_BOX_PX; }
 
         const clamped = clampBBox((l + r) / 2 / iw, (t + b) / 2 / ih, (r - l) / iw, (b - t) / ih);
-        const nl = clamped.cx - clamped.w / 2, nr = clamped.cx + clamped.w / 2;
-        const nt = clamped.cy - clamped.h / 2, nb = clamped.cy + clamped.h / 2;
         previewAnnRef.current = {
           ...orig,
           ...clamped,
-          points: [{ x: nl, y: nt }, { x: nr, y: nt }, { x: nr, y: nb }, { x: nl, y: nb }],
+          points: bboxToPoints(clamped.cx, clamped.cy, clamped.w, clamped.h),
         };
         redraw();
         return;
@@ -837,13 +802,11 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
             Math.abs(ei.x - si.x), Math.abs(ei.y - si.y),
           );
           const clamped = clampBBox(yolo.cx, yolo.cy, yolo.w, yolo.h);
-          const l = clamped.cx - clamped.w / 2, r = clamped.cx + clamped.w / 2;
-          const t = clamped.cy - clamped.h / 2, b = clamped.cy + clamped.h / 2;
           const newAnn: BBox = {
             id:         crypto.randomUUID(),
             classIndex: activeClassIndexRef.current,
             ...clamped,
-            points: [{ x: l, y: t }, { x: r, y: t }, { x: r, y: b }, { x: l, y: b }],
+            points: bboxToPoints(clamped.cx, clamped.cy, clamped.w, clamped.h),
           };
           onAnnotationsChangeRef.current([...annotationsRef.current, newAnn]);
           onSelectRef.current(newAnn.id);

@@ -8,7 +8,7 @@ import AnnotationCanvas, { type CanvasHandle } from "../components/AnnotationCan
 import ImageList from "../components/ImageList";
 import ClassPanel from "../components/ClassPanel";
 import UploadZone from "../components/UploadZone";
-import { type BBox, type ClassDef, type AnnotateTool, type ImageEntry } from "../lib/annotationTypes";
+import { type BBox, type ClassDef, type AnnotateTool, type ImageEntry, bboxToPoints } from "../lib/annotationTypes";
 import { type Asset } from "../lib/types";
 import { loadImageSrc } from "../lib/imageLoader";
 import { getRPC } from "../lib/rpc";
@@ -457,11 +457,8 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
               if (a.id !== id) return a;
               const updated = { ...a, ...patch };
               // Keep 4-corner points in sync when bbox is edited manually
-              if (updated.points?.length === 4) {
-                const l = updated.cx - updated.w / 2, r = updated.cx + updated.w / 2;
-                const t = updated.cy - updated.h / 2, b = updated.cy + updated.h / 2;
-                updated.points = [{ x: l, y: t }, { x: r, y: t }, { x: r, y: b }, { x: l, y: b }];
-              }
+              if (updated.points?.length === 4)
+                updated.points = bboxToPoints(updated.cx, updated.cy, updated.w, updated.h);
               return updated;
             }));
           }}

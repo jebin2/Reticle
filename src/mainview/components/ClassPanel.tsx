@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil } from "lucide-react";
-import { type BBox, type ClassDef, clampBBox } from "../lib/annotationTypes";
+import { type BBox, type ClassDef, clampBBox, clampPt, pointsToBbox } from "../lib/annotationTypes";
 import { CLASS_COLORS } from "../lib/constants";
 import { accentColorHover } from "../lib/styleUtils";
 
@@ -283,17 +283,9 @@ function PolygonEditor({
     const num = parseFloat(raw);
     if (isNaN(num)) return;
     const newPts = pts.map((p, j) =>
-      j === i ? { ...p, [axis]: Math.max(0, Math.min(1, num)) } : p
+      j === i ? { ...p, [axis]: clampPt(num) } : p
     );
-    const xs   = newPts.map(p => p.x);
-    const ys   = newPts.map(p => p.y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    onEditAnnotation(ann.id, {
-      points: newPts,
-      cx: (minX + maxX) / 2, cy: (minY + maxY) / 2,
-      w: maxX - minX, h: maxY - minY,
-    });
+    onEditAnnotation(ann.id, { points: newPts, ...pointsToBbox(newPts) });
   }
 
   const inputStyle: React.CSSProperties = {
@@ -375,10 +367,10 @@ function BBoxEditor({
     let w = ann.w;
     let h = ann.h;
 
-    if (field === "x") x = Math.max(0, Math.min(1, num));
-    if (field === "y") y = Math.max(0, Math.min(1, num));
-    if (field === "w") w = Math.max(0, Math.min(1, num));
-    if (field === "h") h = Math.max(0, Math.min(1, num));
+    if (field === "x") x = clampPt(num);
+    if (field === "y") y = clampPt(num);
+    if (field === "w") w = clampPt(num);
+    if (field === "h") h = clampPt(num);
 
     const next = clampBBox(x + w / 2, y + h / 2, w, h);
 

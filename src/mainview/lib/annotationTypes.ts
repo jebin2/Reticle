@@ -30,6 +30,27 @@ export interface BBox {
   points?: Array<{ x: number; y: number }>;
 }
 
+/** Clamp a single normalized coordinate to [0, 1]. */
+export function clampPt(v: number): number {
+  return Math.max(0, Math.min(1, v));
+}
+
+/** Convert a YOLO center bbox to 4-corner polygon points (TL, TR, BR, BL). */
+export function bboxToPoints(cx: number, cy: number, w: number, h: number): Array<{ x: number; y: number }> {
+  const l = cx - w / 2, r = cx + w / 2;
+  const t = cy - h / 2, b = cy + h / 2;
+  return [{ x: l, y: t }, { x: r, y: t }, { x: r, y: b }, { x: l, y: b }];
+}
+
+/** Derive YOLO center bbox fields from the bounding rect of a polygon point array. */
+export function pointsToBbox(points: Array<{ x: number; y: number }>): Pick<BBox, "cx" | "cy" | "w" | "h"> {
+  const xs = points.map(p => p.x);
+  const ys = points.map(p => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
+}
+
 export interface ClassDef {
   name: string;
   color: string;
