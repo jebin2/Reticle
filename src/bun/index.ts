@@ -544,6 +544,7 @@ const mainWindow = new BrowserWindow({
 	frame: { width: 1280, height: 800, x: 100, y: 80 },
 	rpc,
 });
+mainWindow.maximize();
 
 console.log(`Reticle started — bridge on port ${server.port}`);
 
