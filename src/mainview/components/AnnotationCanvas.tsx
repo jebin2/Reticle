@@ -142,6 +142,16 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
 
+  function clampToImage(pos: { x: number; y: number }) {
+    const { w: iw, h: ih } = imgSizeRef.current;
+    const sc = scaleRef.current;
+    const { x: ox, y: oy } = offsetRef.current;
+    return {
+      x: Math.max(ox, Math.min(ox + iw * sc, pos.x)),
+      y: Math.max(oy, Math.min(oy + ih * sc, pos.y)),
+    };
+  }
+
   function canvasToImage(cx: number, cy: number) {
     return {
       x: (cx - offsetRef.current.x) / scaleRef.current,
@@ -428,9 +438,10 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
       }
 
       if (toolRef.current === "box") {
+        const clamped = clampToImage(pos);
         isDrawingRef.current = true;
-        drawStartRef.current = pos;
-        drawEndRef.current   = pos;
+        drawStartRef.current = clamped;
+        drawEndRef.current   = clamped;
       }
     }
 
@@ -453,10 +464,15 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
         const startImg = canvasToImage(dragStartPosRef.current.x, dragStartPosRef.current.y);
         const currImg  = canvasToImage(pos.x, pos.y);
         const { w: iw, h: ih } = imgSizeRef.current;
+        const newCx = orig.cx + (currImg.x - startImg.x) / iw;
+        const newCy = orig.cy + (currImg.y - startImg.y) / ih;
+        // clamp so the whole box stays within [0,1]
+        const halfW = orig.w / 2;
+        const halfH = orig.h / 2;
         previewAnnRef.current = {
           ...orig,
-          cx: clamp01(orig.cx + (currImg.x - startImg.x) / iw),
-          cy: clamp01(orig.cy + (currImg.y - startImg.y) / ih),
+          cx: Math.max(halfW, Math.min(1 - halfW, newCx)),
+          cy: Math.max(halfH, Math.min(1 - halfH, newCy)),
         };
         redraw();
         return;
@@ -473,10 +489,10 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
         let t = (orig.cy - orig.h / 2) * ih;
         let b = (orig.cy + orig.h / 2) * ih;
 
-        if (c === 0) { l = imgCurr.x; t = imgCurr.y; }
-        if (c === 1) { r = imgCurr.x; t = imgCurr.y; }
-        if (c === 2) { l = imgCurr.x; b = imgCurr.y; }
-        if (c === 3) { r = imgCurr.x; b = imgCurr.y; }
+        if (c === 0) { l = Math.max(0, imgCurr.x); t = Math.max(0, imgCurr.y); }
+        if (c === 1) { r = Math.min(iw, imgCurr.x); t = Math.max(0, imgCurr.y); }
+        if (c === 2) { l = Math.max(0, imgCurr.x); b = Math.min(ih, imgCurr.y); }
+        if (c === 3) { r = Math.min(iw, imgCurr.x); b = Math.min(ih, imgCurr.y); }
 
         // enforce minimum size
         if (r - l < MIN_BOX_PX) { if (c === 0 || c === 2) l = r - MIN_BOX_PX; else r = l + MIN_BOX_PX; }
@@ -494,7 +510,7 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
       }
 
       if (isDrawingRef.current) {
-        drawEndRef.current = pos;
+        drawEndRef.current = clampToImage(pos);
         redraw();
         return;
       }
@@ -527,7 +543,7 @@ const AnnotationCanvas = forwardRef<CanvasHandle, Props>(function AnnotationCanv
       if (isDrawingRef.current && toolRef.current === "box") {
         isDrawingRef.current = false;
         const s   = drawStartRef.current;
-        const end = canvasPos(e);
+        const end = clampToImage(canvasPos(e));
         if (Math.abs(end.x - s.x) > 8 && Math.abs(end.y - s.y) > 8) {
           const si   = canvasToImage(s.x, s.y);
           const ei   = canvasToImage(end.x, end.y);
