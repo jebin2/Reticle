@@ -1,4 +1,4 @@
-import Electrobun, { BrowserWindow, defineElectrobunRPC } from "electrobun/bun";
+import Electrobun, { BrowserWindow, defineElectrobunRPC, Screen } from "electrobun/bun";
 import { readdir, mkdir, copyFile, cp, appendFile, unlink, rm, mkdtemp, stat } from "fs/promises";
 import { join, extname, basename, dirname } from "path";
 import { randomBytes } from "crypto";
@@ -538,13 +538,13 @@ const rpc = defineElectrobunRPC("bun", {
 
 // ── Window ────────────────────────────────────────────────────────────────────
 
+const { x, y, width, height } = Screen.getPrimaryDisplay().workArea;
 const mainWindow = new BrowserWindow({
 	title: "Reticle",
 	url:   "views://mainview/index.html",
-	frame: { width: 1280, height: 800, x: 100, y: 80 },
+	frame: { x, y, width, height },
 	rpc,
 });
-mainWindow.maximize();
 
 console.log(`Reticle started — bridge on port ${server.port}`);
 
