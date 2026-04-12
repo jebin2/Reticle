@@ -139,7 +139,7 @@ function LogLine({ line }: { line: string }) {
         {ev.lossCls != null && <span>cls <span style={{ color: "#22C55E" }}>{(ev.lossCls as number).toFixed(4)}</span>  </span>}
         {ev.lossDfl != null && <span>dfl <span style={{ color: "#A78BFA" }}>{(ev.lossDfl as number).toFixed(4)}</span>  </span>}
         {ev.mAP     != null && <span>mAP <span style={{ color: "var(--accent)" }}>{(ev.mAP as number).toFixed(4)}</span></span>}
-        {ev.earlyStop && <span style={{ color: "#F59E0B", marginLeft: 6 }}>⏹ early stop</span>}
+        {!!ev.earlyStop && <span style={{ color: "#F59E0B", marginLeft: 6 }}>⏹ early stop</span>}
       </div>
     );
     if (ev.type === "dataset") return <div style={{ color: "var(--text-muted)", marginBottom: 2, opacity: 0.7 }}>dataset: {ev.imageCount as number} annotated images</div>;
