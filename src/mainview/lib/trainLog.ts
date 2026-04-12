@@ -1,3 +1,5 @@
+import { parseLogLine } from "./logParser";
+
 export type LogProgress = {
   epoch: number; epochs: number;
   loss: number | null;
@@ -20,28 +22,27 @@ export function parseLog(lines: string[]): {
   let earlyStopTriggered = false;
 
   for (const line of lines) {
-    try {
-      const ev = JSON.parse(line);
-      if (ev.type === "progress") {
-        if (ev.earlyStop) earlyStopTriggered = true;
-        progress = {
-          epoch: ev.epoch, epochs: ev.epochs,
-          loss:      ev.loss      ?? null,
-          lossBox:   ev.lossBox   ?? null,
-          lossCls:   ev.lossCls   ?? null,
-          lossDfl:   ev.lossDfl   ?? null,
-          mAP:       ev.mAP       ?? null,
-          precision: ev.precision ?? null,
-          recall:    ev.recall    ?? null,
-          ramMB:     ev.ramMB     ?? null,
-          gpuMB:     ev.gpuMB     ?? null,
-          earlyStop: !!ev.earlyStop,
-        };
-      }
-      if (ev.type === "dataset") datasetSize = ev.imageCount;
-      if (ev.type === "done")    done    = { mAP50: ev.mAP50, mAP50_95: ev.mAP50_95, weightsPath: ev.weightsPath };
-      if (ev.type === "error")   error   = { message: ev.message };
-    } catch {}
+    const ev = parseLogLine(line);
+    if (!ev) continue;
+    if (ev.type === "progress") {
+      if (ev.earlyStop) earlyStopTriggered = true;
+      progress = {
+        epoch: ev.epoch as number, epochs: ev.epochs as number,
+        loss:      (ev.loss      as number)  ?? null,
+        lossBox:   (ev.lossBox   as number)  ?? null,
+        lossCls:   (ev.lossCls   as number)  ?? null,
+        lossDfl:   (ev.lossDfl   as number)  ?? null,
+        mAP:       (ev.mAP       as number)  ?? null,
+        precision: (ev.precision as number)  ?? null,
+        recall:    (ev.recall    as number)  ?? null,
+        ramMB:     (ev.ramMB     as number)  ?? null,
+        gpuMB:     (ev.gpuMB     as number)  ?? null,
+        earlyStop: !!ev.earlyStop,
+      };
+    }
+    if (ev.type === "dataset") datasetSize = ev.imageCount as number;
+    if (ev.type === "done")    done    = { mAP50: ev.mAP50 as number, mAP50_95: ev.mAP50_95 as number, weightsPath: ev.weightsPath as string };
+    if (ev.type === "error")   error   = { message: ev.message as string };
   }
 
   return { progress, done, error, datasetSize, earlyStopTriggered };

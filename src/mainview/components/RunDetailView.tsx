@@ -5,6 +5,7 @@ import { type TrainingRun } from "../lib/types";
 import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, DEVICES, CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
 import { parseLog, type LogProgress } from "../lib/trainLog";
+import { parseLogLine } from "../lib/logParser";
 import { panel, sectionLabel, statusBadge, dropdownItemHover } from "../lib/styleUtils";
 import LogPanel from "./LogPanel";
 
@@ -128,24 +129,24 @@ function MemoryBar({ label, valueMB, peakMB, color }: { label: string; valueMB: 
 // ── LogLine ───────────────────────────────────────────────────────────────────
 
 function LogLine({ line }: { line: string }) {
-  try {
-    const ev = JSON.parse(line);
-    if (ev.type === "start")    return <div style={{ color: "var(--text-muted)", marginBottom: 2, opacity: 0.6 }}>● run started {new Date(ev.timestamp).toLocaleString()}</div>;
+  const ev = parseLogLine(line);
+  if (ev) {
+    if (ev.type === "start")    return <div style={{ color: "var(--text-muted)", marginBottom: 2, opacity: 0.6 }}>● run started {new Date(ev.timestamp as string).toLocaleString()}</div>;
     if (ev.type === "progress") return (
       <div style={{ color: "var(--text)", marginBottom: 1 }}>
         <span style={{ color: "var(--text-muted)" }}>epoch {String(ev.epoch).padStart(4)} </span>
-        {ev.lossBox != null && <span>box <span style={{ color: "#F97316" }}>{ev.lossBox.toFixed(4)}</span>  </span>}
-        {ev.lossCls != null && <span>cls <span style={{ color: "#22C55E" }}>{ev.lossCls.toFixed(4)}</span>  </span>}
-        {ev.lossDfl != null && <span>dfl <span style={{ color: "#A78BFA" }}>{ev.lossDfl.toFixed(4)}</span>  </span>}
-        {ev.mAP     != null && <span>mAP <span style={{ color: "var(--accent)" }}>{ev.mAP.toFixed(4)}</span></span>}
+        {ev.lossBox != null && <span>box <span style={{ color: "#F97316" }}>{(ev.lossBox as number).toFixed(4)}</span>  </span>}
+        {ev.lossCls != null && <span>cls <span style={{ color: "#22C55E" }}>{(ev.lossCls as number).toFixed(4)}</span>  </span>}
+        {ev.lossDfl != null && <span>dfl <span style={{ color: "#A78BFA" }}>{(ev.lossDfl as number).toFixed(4)}</span>  </span>}
+        {ev.mAP     != null && <span>mAP <span style={{ color: "var(--accent)" }}>{(ev.mAP as number).toFixed(4)}</span></span>}
         {ev.earlyStop && <span style={{ color: "#F59E0B", marginLeft: 6 }}>⏹ early stop</span>}
       </div>
     );
-    if (ev.type === "dataset") return <div style={{ color: "var(--text-muted)", marginBottom: 2, opacity: 0.7 }}>dataset: {ev.imageCount} annotated images</div>;
-    if (ev.type === "done")   return <div style={{ color: "#22C55E", marginTop: 4, fontWeight: 700 }}>✓ done — mAP50: {ev.mAP50.toFixed(4)}  mAP50-95: {ev.mAP50_95.toFixed(4)}</div>;
-    if (ev.type === "error")  return <div style={{ color: "#EF4444", marginTop: 4 }}>✗ error: {ev.message}</div>;
-    if (ev.type === "stderr") return <div style={{ color: "#F59E0B", marginBottom: 1, opacity: 0.8 }}>{ev.text}</div>;
-  } catch {}
+    if (ev.type === "dataset") return <div style={{ color: "var(--text-muted)", marginBottom: 2, opacity: 0.7 }}>dataset: {ev.imageCount as number} annotated images</div>;
+    if (ev.type === "done")   return <div style={{ color: "#22C55E", marginTop: 4, fontWeight: 700 }}>✓ done — mAP50: {(ev.mAP50 as number).toFixed(4)}  mAP50-95: {(ev.mAP50_95 as number).toFixed(4)}</div>;
+    if (ev.type === "error")  return <div style={{ color: "#EF4444", marginTop: 4 }}>✗ error: {ev.message as string}</div>;
+    if (ev.type === "stderr") return <div style={{ color: "#F59E0B", marginBottom: 1, opacity: 0.8 }}>{ev.text as string}</div>;
+  }
   return <div style={{ color: "var(--text-muted)", marginBottom: 1 }}>{line}</div>;
 }
 
@@ -255,8 +256,8 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
   const [showMetricsInfo, setShowMetricsInfo] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  const peakRamMB = useMemo(() => { let p = 0; for (const l of lines) { try { const ev = JSON.parse(l); if (ev.type === "progress" && ev.ramMB != null) p = Math.max(p, ev.ramMB); } catch {} } return p || null; }, [lines]);
-  const peakGpuMB = useMemo(() => { let p = 0; for (const l of lines) { try { const ev = JSON.parse(l); if (ev.type === "progress" && ev.gpuMB != null) p = Math.max(p, ev.gpuMB); } catch {} } return p || null; }, [lines]);
+  const peakRamMB = useMemo(() => { let p = 0; for (const l of lines) { const ev = parseLogLine(l); if (ev?.type === "progress" && ev.ramMB != null) p = Math.max(p, ev.ramMB as number); } return p || null; }, [lines]);
+  const peakGpuMB = useMemo(() => { let p = 0; for (const l of lines) { const ev = parseLogLine(l); if (ev?.type === "progress" && ev.gpuMB != null) p = Math.max(p, ev.gpuMB as number); } return p || null; }, [lines]);
 
   useEffect(() => {
     let active = true;
@@ -287,13 +288,11 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
     type Pt = { epoch: number; loss: number };
     const box: Pt[] = [], cls: Pt[] = [], dfl: Pt[] = [];
     for (const line of lines) {
-      try {
-        const ev = JSON.parse(line);
-        if (ev.type !== "progress") continue;
-        if (ev.lossBox != null) box.push({ epoch: ev.epoch, loss: ev.lossBox });
-        if (ev.lossCls != null) cls.push({ epoch: ev.epoch, loss: ev.lossCls });
-        if (ev.lossDfl != null) dfl.push({ epoch: ev.epoch, loss: ev.lossDfl });
-      } catch {}
+      const ev = parseLogLine(line);
+      if (!ev || ev.type !== "progress") continue;
+      if (ev.lossBox != null) box.push({ epoch: ev.epoch as number, loss: ev.lossBox as number });
+      if (ev.lossCls != null) cls.push({ epoch: ev.epoch as number, loss: ev.lossCls as number });
+      if (ev.lossDfl != null) dfl.push({ epoch: ev.epoch as number, loss: ev.lossDfl as number });
     }
     const allPts = [...box, ...cls, ...dfl];
     if (allPts.length < 2) return { curves: null, liveDots: null };

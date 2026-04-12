@@ -6,19 +6,20 @@ import CustomSelect from "../components/CustomSelect";
 import LogPanel from "../components/LogPanel";
 import { pageHeader, primaryBtn } from "../lib/styleUtils";
 import { parsePushLog, type PushPhase } from "../lib/pushLog";
+import { parseLogLine } from "../lib/logParser";
 
 interface Props {
   runs: TrainingRun[];
 }
 
 function HubLogLine({ line }: { line: string }) {
-  try {
-    const ev = JSON.parse(line);
-    if (ev.type === "progress") return <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>{ev.text}</div>;
-    if (ev.type === "stderr")   return <div style={{ color: "#F59E0B", marginBottom: 1, opacity: 0.85 }}>{ev.text}</div>;
-    if (ev.type === "done")     return <div style={{ color: "#22C55E", marginTop: 4, fontWeight: 700 }}>published - {ev.url}</div>;
-    if (ev.type === "error")    return <div style={{ color: "#EF4444", marginTop: 4 }}>error: {ev.message}</div>;
-  } catch {}
+  const ev = parseLogLine(line);
+  if (ev) {
+    if (ev.type === "progress") return <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>{ev.text as string}</div>;
+    if (ev.type === "stderr")   return <div style={{ color: "#F59E0B", marginBottom: 1, opacity: 0.85 }}>{ev.text as string}</div>;
+    if (ev.type === "done")     return <div style={{ color: "#22C55E", marginTop: 4, fontWeight: 700 }}>published - {ev.url as string}</div>;
+    if (ev.type === "error")    return <div style={{ color: "#EF4444", marginTop: 4 }}>error: {ev.message as string}</div>;
+  }
   return <div style={{ color: "var(--text-muted)", marginBottom: 1 }}>{line}</div>;
 }
 
