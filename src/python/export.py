@@ -16,6 +16,7 @@ import json
 import logging
 import subprocess
 import sys
+from logger import emit
 
 # Extra packages required per export format (beyond ultralytics).
 FORMAT_DEPS: dict[str, list[str]] = {
@@ -51,7 +52,7 @@ def main():
     try:
         config = json.load(sys.stdin)
     except json.JSONDecodeError as e:
-        print(json.dumps({"exportedPath": "", "error": f"Invalid config JSON: {e}"}), flush=True)
+        emit({"exportedPath": "", "error": f"Invalid config JSON: {e}"})
         sys.exit(1)
 
     model_path = config["modelPath"]
@@ -60,7 +61,7 @@ def main():
     try:
         ensure_deps(fmt)
     except Exception as e:
-        print(json.dumps({"exportedPath": "", "error": f"Failed to install dependencies: {e}"}), flush=True)
+        emit({"exportedPath": "", "error": f"Failed to install dependencies: {e}"})
         sys.exit(1)
 
     try:
@@ -68,16 +69,16 @@ def main():
         silence_ultralytics()
         model = YOLO(model_path)
     except Exception as e:
-        print(json.dumps({"exportedPath": "", "error": f"Failed to load model: {e}"}), flush=True)
+        emit({"exportedPath": "", "error": f"Failed to load model: {e}"})
         sys.exit(1)
 
     try:
         exported_path = model.export(format=fmt)
     except Exception as e:
-        print(json.dumps({"exportedPath": "", "error": f"Export failed: {e}"}), flush=True)
+        emit({"exportedPath": "", "error": f"Export failed: {e}"})
         sys.exit(1)
 
-    print(json.dumps({"exportedPath": str(exported_path), "error": None}), flush=True)
+    emit({"exportedPath": str(exported_path), "error": None})
 
 
 if __name__ == "__main__":

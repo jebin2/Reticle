@@ -21,6 +21,7 @@ Each detection:
 import json
 import sys
 from pathlib import Path
+from logger import emit
 from yolo_utils import suppress_fd1
 
 
@@ -28,7 +29,7 @@ def main():
     try:
         config = json.load(sys.stdin)
     except json.JSONDecodeError as e:
-        print(json.dumps({"error": f"Invalid config JSON: {e}"}), flush=True)
+        emit({"error": f"Invalid config JSON: {e}"})
         sys.exit(1)
 
     image_path  = Path(config["imagePath"])
@@ -36,7 +37,7 @@ def main():
     confidence  = float(config.get("confidence", 0.5))
 
     if not image_path.exists():
-        print(json.dumps({"error": f"Image not found: {image_path}"}), flush=True)
+        emit({"error": f"Image not found: {image_path}"})
         sys.exit(1)
 
     try:
@@ -44,7 +45,7 @@ def main():
             from ultralytics import YOLO
             model = YOLO(model_path)
     except Exception as e:
-        print(json.dumps({"error": f"Failed to load model: {e}"}), flush=True)
+        emit({"error": f"Failed to load model: {e}"})
         sys.exit(1)
 
     try:
@@ -56,7 +57,7 @@ def main():
                 verbose = False,
             )
     except Exception as e:
-        print(json.dumps({"error": f"Inference failed: {e}"}), flush=True)
+        emit({"error": f"Inference failed: {e}"})
         sys.exit(1)
 
     detections = []
@@ -86,11 +87,11 @@ def main():
     # Sort highest confidence first.
     detections.sort(key=lambda d: d["confidence"], reverse=True)
 
-    print(json.dumps({
+    emit({
         "detections": detections,
         "imageW":     image_w,
         "imageH":     image_h,
-    }), flush=True)
+    })
 
 
 if __name__ == "__main__":

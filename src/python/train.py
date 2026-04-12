@@ -28,12 +28,7 @@ import subprocess
 import sys
 import yaml
 from pathlib import Path
-
-
-# ── helpers ────────────────────────────────────────────────────────────────────
-
-def emit(obj: dict):
-    print(json.dumps(obj), flush=True)
+from logger import emit
 
 
 def load_model(base_model: str, checkpoint: Path, resuming: bool):

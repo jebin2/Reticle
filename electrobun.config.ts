@@ -26,6 +26,7 @@ export default {
 			"src/python/yolo_utils.py": "python/yolo_utils.py",
 			"src/python/cli.py": "python/cli.py",
 			"src/python/push_to_hub.py": "python/push_to_hub.py",
+			"src/python/logger.py": "python/logger.py",
 			"src/bun/cli.ts": "bun/cli.ts",
 			"src/bun/util.ts": "bun/util.ts",
 		},

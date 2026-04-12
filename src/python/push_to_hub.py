@@ -17,10 +17,7 @@ Progress emitted as newline-delimited JSON to stdout:
 import json
 import sys
 from pathlib import Path
-
-
-def emit(obj: dict):
-    print(json.dumps(obj), flush=True)
+from logger import emit
 
 
 def main():
