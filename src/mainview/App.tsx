@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Sidebar from "./components/Sidebar";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { type NavPage, type Asset, type TrainingRun } from "./lib/types";
 import { getRPC } from "./lib/rpc";
 import Overview  from "./pages/Overview";
@@ -60,26 +61,28 @@ export default function App() {
       <Sidebar activePage={activePage} onNavigate={navigate} />
 
       <main style={{ flex: 1, overflow: "hidden", display: "flex" }}>
-        {activePage === "overview"  && <Overview assets={assets} runs={runs} onNavigate={navigate} />}
-        {activePage === "assets"    && !activeAsset && (
-          <Assets
-            assets={assets}
-            runs={runs}
-            onAssetsChange={setAssets}
-            onOpenAsset={openAsset}
-          />
-        )}
-        {activePage === "assets"    && activeAsset && (
-          <Annotate
-            asset={activeAsset}
-            onAssetUpdate={handleAssetUpdate}
-            onBack={() => setActiveAsset(null)}
-          />
-        )}
-        {activePage === "train"     && <Train assets={assets} runs={runs} onRunsChange={setRuns} />}
-        {activePage === "inference" && <Inference runs={runs} />}
-        {activePage === "export"    && <Export runs={runs} />}
-        {activePage === "hub"       && <PushHub runs={runs} />}
+        <ErrorBoundary key={activePage} page={activePage}>
+          {activePage === "overview"  && <Overview assets={assets} runs={runs} onNavigate={navigate} />}
+          {activePage === "assets"    && !activeAsset && (
+            <Assets
+              assets={assets}
+              runs={runs}
+              onAssetsChange={setAssets}
+              onOpenAsset={openAsset}
+            />
+          )}
+          {activePage === "assets"    && activeAsset && (
+            <Annotate
+              asset={activeAsset}
+              onAssetUpdate={handleAssetUpdate}
+              onBack={() => setActiveAsset(null)}
+            />
+          )}
+          {activePage === "train"     && <Train assets={assets} runs={runs} onRunsChange={setRuns} />}
+          {activePage === "inference" && <Inference runs={runs} />}
+          {activePage === "export"    && <Export runs={runs} />}
+          {activePage === "hub"       && <PushHub runs={runs} />}
+        </ErrorBoundary>
       </main>
     </div>
   );

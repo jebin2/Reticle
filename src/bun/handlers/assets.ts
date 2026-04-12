@@ -185,6 +185,11 @@ export const assetHandlers = {
 		return {};
 	},
 
+	ensureDir: async ({ path }: { path: string }) => {
+		await mkdir(exp(path), { recursive: true });
+		return {};
+	},
+
 	importImages: async ({ storagePath, files }: {
 		storagePath: string;
 		files: Array<{ filename: string; sourcePath?: string; dataUrl?: string }>;

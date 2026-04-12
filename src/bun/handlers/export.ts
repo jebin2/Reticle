@@ -75,8 +75,8 @@ export const exportHandlers = {
 		return { filePath: outBinary, filename: binaryName, error: null };
 	},
 
-	exportCLI: async ({ outputPath, runName, destDir }: {
-		outputPath: string; runName: string; destDir: string;
+	exportCLI: async ({ outputPath, runName, destDir, runId }: {
+		outputPath: string; runName: string; destDir: string; runId: string;
 	}) => {
 		const modelPath = getModelPath(exp(outputPath));
 		if (!(await Bun.file(modelPath).exists()))
@@ -97,11 +97,11 @@ export const exportHandlers = {
 				[process.execPath, "build", "--compile", "--minify", "--bytecode", join(buildDir, "cli.ts"), "--outfile", outBinary],
 				{ stdout: "pipe", stderr: "pipe" },
 			);
-			// Note: exportCLI has no runId param, so it cannot be cancelled via cancelExport.
-			// Add runId to params and RPC schema if cancellation is needed.
+			runningProcesses.set(runId, proc);
 			let stderr = "";
 			for await (const chunk of proc.stderr) stderr += new TextDecoder().decode(chunk);
 			const exitCode = await proc.exited;
+			runningProcesses.delete(runId);
 			if (exitCode !== 0)
 				return { bundlePath: "", error: `Compile failed: ${stderr.trim().split("\n").pop()}` };
 		} finally {

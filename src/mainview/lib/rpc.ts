@@ -48,6 +48,10 @@ type RPCSchema = {
         };
         response: Record<string, never>;
       };
+      ensureDir: {
+        params:   { path: string };
+        response: Record<string, never>;
+      };
       importImages: {
         params: {
           storagePath: string;
@@ -99,7 +103,7 @@ type RPCSchema = {
         response: { filePath: string; filename: string; error: string | null };
       };
       exportCLI: {
-        params:   { outputPath: string; runName: string; destDir: string };
+        params:   { outputPath: string; runName: string; destDir: string; runId: string };
         response: { bundlePath: string; error: string | null };
       };
       cancelExport: {

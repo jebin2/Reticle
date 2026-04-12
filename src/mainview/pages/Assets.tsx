@@ -31,6 +31,7 @@ export default function Assets({ assets, runs, onAssetsChange, onOpenAsset }: Pr
     };
     onAssetsChange([...assets, asset]);
     setShowModal(false);
+    getRPC().request.ensureDir({ path: storagePath }).catch(() => {});
     onOpenAsset(asset);
   }
 
