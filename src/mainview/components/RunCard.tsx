@@ -4,19 +4,16 @@ import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, CLASS_COLORS } from "../lib/const
 import { type LogProgress } from "../lib/trainLog";
 import { cardHover, statusBadge, mutedText } from "../lib/styleUtils";
 
+export type RunAction = "view" | "start-fresh" | "resume" | "pause" | "stop" | "delete";
+
 export interface RunCardProps {
   run: TrainingRun;
   assets: Asset[];
   progress?: LogProgress;
-  onClick: () => void;
-  onStartFresh: () => void;
-  onResume: () => void;
-  onPause: () => void;
-  onStop: () => void;
-  onDelete: () => void;
+  onAction: (action: RunAction) => void;
 }
 
-export function RunCard({ run, assets, progress, onClick, onStartFresh, onResume, onPause, onStop, onDelete }: RunCardProps) {
+export function RunCard({ run, assets, progress, onAction }: RunCardProps) {
   const statusColor = RUN_STATUS_COLORS[run.status];
   const statusLabel = RUN_STATUS_LABELS[run.status];
   const runAssets   = assets.filter(a => run.assetIds.includes(a.id));
@@ -24,7 +21,7 @@ export function RunCard({ run, assets, progress, onClick, onStartFresh, onResume
 
   return (
     <div
-      onClick={onClick}
+      onClick={() => onAction("view")}
       style={{
         background: "var(--surface)", border: "1px solid var(--border)",
         borderRadius: 8, overflow: "hidden", cursor: "pointer",
@@ -54,22 +51,22 @@ export function RunCard({ run, assets, progress, onClick, onStartFresh, onResume
             {(run.status === "idle" || run.status === "done" || run.status === "failed") && (
               <ActionBtn Icon={Play} color="var(--accent)"
                 title={run.status === "idle" ? "Start" : run.status === "done" ? "Start again" : "Retry"}
-                onClick={onStartFresh} />
+                onClick={() => onAction("start-fresh")} />
             )}
             {run.status === "paused" && (
-              <ActionBtn Icon={Play} color="#3B82F6" title="Resume" onClick={onResume} />
+              <ActionBtn Icon={Play} color="#3B82F6" title="Resume" onClick={() => onAction("resume")} />
             )}
             {run.status === "paused" && (
-              <ActionBtn Icon={Square} color="#EF4444" title="Stop (discard checkpoint)" onClick={onStop} />
+              <ActionBtn Icon={Square} color="#EF4444" title="Stop (discard checkpoint)" onClick={() => onAction("stop")} />
             )}
             {run.status === "training" && (
-              <ActionBtn Icon={Pause} color="#F97316" title="Pause" onClick={onPause} />
+              <ActionBtn Icon={Pause} color="#F97316" title="Pause" onClick={() => onAction("pause")} />
             )}
             {(run.status === "training" || run.status === "installing") && (
-              <ActionBtn Icon={Square} color="#EF4444" title="Stop (discard checkpoint)" onClick={onStop} />
+              <ActionBtn Icon={Square} color="#EF4444" title="Stop (discard checkpoint)" onClick={() => onAction("stop")} />
             )}
             {(run.status === "idle" || run.status === "done" || run.status === "failed") && (
-              <ActionBtn Icon={Trash2} color="var(--text-muted)" title="Delete run" onClick={onDelete} danger />
+              <ActionBtn Icon={Trash2} color="var(--text-muted)" title="Delete run" onClick={() => onAction("delete")} danger />
             )}
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus } from "lucide-react";
-import { RunCard } from "../components/RunCard";
+import { RunCard, type RunAction } from "../components/RunCard";
 import RunDetailView from "../components/RunDetailView";
 import NewRunModal from "../components/NewRunModal";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
@@ -130,12 +130,14 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
           {runs.map(run => (
             <RunCard
               key={run.id} run={run} assets={assets} progress={runProgress[run.id]}
-              onClick={() => setDetailRun(run)}
-              onStartFresh={() => handleStart(run, true)}
-              onResume={() => handleStart(run, false)}
-              onPause={() => handlePause(run)}
-              onStop={() => handleStop(run)}
-              onDelete={() => setDeleteTarget(run)}
+              onAction={(action: RunAction) => {
+                if (action === "view")        setDetailRun(run);
+                else if (action === "start-fresh") handleStart(run, true);
+                else if (action === "resume") handleStart(run, false);
+                else if (action === "pause")  handlePause(run);
+                else if (action === "stop")   handleStop(run);
+                else if (action === "delete") setDeleteTarget(run);
+              }}
             />
           ))}
 
