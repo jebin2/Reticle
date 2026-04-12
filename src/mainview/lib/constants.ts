@@ -29,12 +29,23 @@ export const RUN_STATUS_COLORS: Record<RunStatus, string> = {
   failed:     "#EF4444",
 };
 
-export const BASE_MODELS = [
+export const BASE_MODELS_SEG = [
   "yolo26n-seg",
   "yolo26s-seg",
   "yolo26m-seg",
   "yolo26l-seg",
   "yolo26x-seg",
 ];
+
+export const BASE_MODELS_DET = [
+  "yolo26n",
+  "yolo26s",
+  "yolo26m",
+  "yolo26l",
+  "yolo26x",
+];
+
+// Legacy alias — prefer BASE_MODELS_SEG / BASE_MODELS_DET directly.
+export const BASE_MODELS = BASE_MODELS_SEG;
 
 export const DEVICES = ["auto", "cpu", "cuda:0", "mps"];

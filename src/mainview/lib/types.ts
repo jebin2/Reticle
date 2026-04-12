@@ -12,6 +12,9 @@ export interface Asset {
   annotatedCount: number;
   updatedAt: string;
   thumbnailColor: string;
+  // true if any annotation in this asset is a true polygon (not just a bbox rectangle).
+  // undefined for assets created before this field was added.
+  hasPolygons?: boolean;
 }
 
 export type RunStatus = "idle" | "installing" | "training" | "paused" | "done" | "failed";

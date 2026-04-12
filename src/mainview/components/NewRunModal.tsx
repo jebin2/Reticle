@@ -4,7 +4,7 @@ import Modal from "./Modal";
 import { Field, NumField, inputStyle } from "./FormFields";
 import CustomSelect from "./CustomSelect";
 import { type TrainingRun, type Asset } from "../lib/types";
-import { BASE_MODELS, DEVICES, CLASS_COLORS } from "../lib/constants";
+import { BASE_MODELS_SEG, BASE_MODELS_DET, DEVICES, CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
 
 const DEFAULT_EPOCHS = 100;
@@ -23,7 +23,7 @@ export default function NewRunModal({ assets, runs, onClose, onCreate }: Props) 
   const [name, setName]             = useState("");
   const [nameEdited, setNameEdited] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
-  const [baseModel, setBaseModel]   = useState(BASE_MODELS[0]);
+  const [baseModel, setBaseModel]   = useState(BASE_MODELS_SEG[0]);
   const [epochs, setEpochs]         = useState(DEFAULT_EPOCHS);
   const [batchSize, setBatchSize]   = useState(DEFAULT_BATCH);
   const [imgsz, setImgsz]           = useState(DEFAULT_IMGSZ);
@@ -42,6 +42,35 @@ export default function NewRunModal({ assets, runs, onClose, onCreate }: Props) 
   const classMap = useMemo(() => [...new Map(
     assets.filter(a => selectedAssets.includes(a.id)).flatMap(a => a.classes).map(c => [c, c])
   ).keys()], [assets, selectedAssets]);
+
+  // Determine annotation mode from selected assets.
+  // "seg"     — all selected assets have polygons
+  // "det"     — all selected assets are bbox-only (hasPolygons === false)
+  // "mixed"   — some bbox-only, some polygon (known types differ)
+  // "unknown" — at least one asset has hasPolygons undefined (annotated before tracking)
+  const annotationMode = useMemo<"seg" | "det" | "mixed" | "unknown">(() => {
+    const sel = assets.filter(a => selectedAssets.includes(a.id) && a.annotatedCount > 0);
+    if (sel.length === 0) return "unknown";
+    const hasUnknown = sel.some(a => a.hasPolygons === undefined);
+    if (hasUnknown) return "unknown";
+    const anyPoly = sel.some(a => a.hasPolygons === true);
+    const anyDet  = sel.some(a => a.hasPolygons === false);
+    if (anyPoly && anyDet) return "mixed";
+    return anyPoly ? "seg" : "det";
+  }, [assets, selectedAssets]);
+
+  // Models available for the current mode. In mixed/unknown the user chooses.
+  const [mixedChoice, setMixedChoice] = useState<"seg" | "det">("seg");
+  const availableModels = useMemo(() => {
+    if (annotationMode === "seg") return BASE_MODELS_SEG;
+    if (annotationMode === "det") return BASE_MODELS_DET;
+    return mixedChoice === "seg" ? BASE_MODELS_SEG : BASE_MODELS_DET;
+  }, [annotationMode, mixedChoice]);
+
+  // Keep baseModel in sync when the available list changes.
+  useMemo(() => {
+    if (!availableModels.includes(baseModel)) setBaseModel(availableModels[0]);
+  }, [availableModels]);
 
   function toggleAsset(id: string) {
     setSelectedAssets(prev => {
@@ -133,8 +162,52 @@ export default function NewRunModal({ assets, runs, onClose, onCreate }: Props) 
             </div>
           )}
 
+          {/* Annotation mode notice — shown when mode is ambiguous or mixed */}
+          {(annotationMode === "mixed" || annotationMode === "unknown") && selectedAssets.length > 0 && (
+            <div style={{ padding: "10px 12px", borderRadius: 6, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#F59E0B", marginBottom: 6 }}>
+                {annotationMode === "mixed"
+                  ? "Mixed annotation types detected"
+                  : "Annotation type unknown"}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10, lineHeight: 1.5 }}>
+                {annotationMode === "mixed"
+                  ? "Some assets use bounding boxes only, others have polygon annotations. Choose which model type to train:"
+                  : "Some assets were annotated before polygon tracking was added. Choose which model type matches your annotations:"}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["seg", "det"] as const).map(choice => (
+                  <button
+                    key={choice}
+                    type="button"
+                    onClick={() => { setMixedChoice(choice); }}
+                    style={{
+                      padding: "5px 14px", borderRadius: 5, fontSize: 12, fontWeight: 600,
+                      border: `1px solid ${mixedChoice === choice ? "#F59E0B" : "var(--border)"}`,
+                      background: mixedChoice === choice ? "rgba(245,158,11,0.15)" : "var(--bg)",
+                      color: mixedChoice === choice ? "#F59E0B" : "var(--text-muted)",
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    {choice === "seg" ? "Segmentation (polygon)" : "Detection (bbox only)"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Annotation mode badge — shown when mode is unambiguous */}
+          {(annotationMode === "seg" || annotationMode === "det") && selectedAssets.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 5, background: "var(--bg)", border: "1px solid var(--border)", width: "fit-content" }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: annotationMode === "seg" ? "#A855F7" : "#3B82F6", flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                {annotationMode === "seg" ? "Segmentation dataset — using seg models" : "Detection dataset — using detection models"}
+              </span>
+            </div>
+          )}
+
           <Field label="Base Model">
-            <CustomSelect value={baseModel} options={BASE_MODELS} onChange={setBaseModel} />
+            <CustomSelect value={baseModel} options={availableModels} onChange={setBaseModel} />
           </Field>
 
           <Field label="Hyperparameters">

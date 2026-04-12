@@ -90,6 +90,7 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
           imageCount:     imagesRef.current.length,
           annotatedCount: imagesRef.current.filter(i => i.annotations.length > 0).length,
           classes:        classesRef.current.map(c => c.name),
+          hasPolygons:    imagesRef.current.some(i => i.annotations.some(a => a.points && a.points.length >= 3)),
           updatedAt:      "just now",
         });
       }
@@ -310,6 +311,7 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
             imageCount:     images.length,
             annotatedCount: images.filter(i => i.annotations.length > 0).length,
             classes:        classes.map(c => c.name),
+            hasPolygons:    images.some(i => i.annotations.some(a => a.points && a.points.length >= 3)),
             updatedAt:      "just now",
           });
           onBack();
