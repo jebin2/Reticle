@@ -121,6 +121,15 @@ def build_dataset(images: list[dict], class_map: list[str], output_dir: Path) ->
     dataset_dir = output_dir / "dataset"
     img_dir     = dataset_dir / "images" / "train"
     lbl_dir     = dataset_dir / "labels" / "train"
+
+    # Always wipe the train directories before rebuilding so stale files from a
+    # previous run don't silently pollute the dataset (e.g. old labels for images
+    # that were modified or removed from the snapshot).
+    if img_dir.exists():
+        shutil.rmtree(img_dir)
+    if lbl_dir.exists():
+        shutil.rmtree(lbl_dir)
+
     img_dir.mkdir(parents=True, exist_ok=True)
     lbl_dir.mkdir(parents=True, exist_ok=True)
 
