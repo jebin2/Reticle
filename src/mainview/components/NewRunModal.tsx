@@ -67,10 +67,10 @@ export default function NewRunModal({ assets, runs, onClose, onCreate }: Props) 
     return mixedChoice === "seg" ? BASE_MODELS_SEG : BASE_MODELS_DET;
   }, [annotationMode, mixedChoice]);
 
-  // Keep baseModel in sync when the available list changes.
-  useMemo(() => {
-    if (!availableModels.includes(baseModel)) setBaseModel(availableModels[0]);
-  }, [availableModels]);
+  // Derive the effective model: if the stored baseModel is no longer in the
+  // available list (e.g. mode switched from seg→det), fall back to the first
+  // option. This avoids a stale seg model being used for a det run.
+  const effectiveModel = availableModels.includes(baseModel) ? baseModel : availableModels[0];
 
   function toggleAsset(id: string) {
     setSelectedAssets(prev => {
@@ -96,7 +96,7 @@ export default function NewRunModal({ assets, runs, onClose, onCreate }: Props) 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!outputPath || selectedAssets.length === 0 || nameConflict) return;
-    onCreate({ id: crypto.randomUUID(), name: name.trim(), assetIds: selectedAssets, classMap, baseModel, epochs, batchSize, imgsz, device, outputPath, status: "idle", updatedAt: "just now" });
+    onCreate({ id: crypto.randomUUID(), name: name.trim(), assetIds: selectedAssets, classMap, baseModel: effectiveModel, epochs, batchSize, imgsz, device, outputPath, status: "idle", updatedAt: "just now" });
   }
 
   const valid = outputPath && selectedAssets.length > 0 && !nameConflict;
@@ -207,7 +207,7 @@ export default function NewRunModal({ assets, runs, onClose, onCreate }: Props) 
           )}
 
           <Field label="Base Model">
-            <CustomSelect value={baseModel} options={availableModels} onChange={setBaseModel} />
+            <CustomSelect value={effectiveModel} options={availableModels} onChange={setBaseModel} />
           </Field>
 
           <Field label="Hyperparameters">
