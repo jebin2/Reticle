@@ -5,7 +5,7 @@ import { Field, inputStyle } from "../components/FormFields";
 import { CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
-import { cardHover, accentHover, deleteHover, pageHeader, primaryBtn, newItemCard } from "../lib/styleUtils";
+import { cardHover, accentHover, deleteHover, pageHeader, primaryBtn, newItemCard, mutedText } from "../lib/styleUtils";
 
 interface Props {
   assets: Asset[];
@@ -183,7 +183,7 @@ function AssetCard({ asset, onClick, onDelete }: { asset: Asset; onClick: () => 
           </div>
         ) : (
           <div style={{ marginBottom: 10 }}>
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>No classes yet</span>
+            <span style={mutedText}>No classes yet</span>
           </div>
         )}
 
@@ -199,7 +199,7 @@ function AssetCard({ asset, onClick, onDelete }: { asset: Asset; onClick: () => 
             <FolderOpen size={10} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
             {asset.storagePath}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Updated {asset.updatedAt}</div>
+          <div style={mutedText}>Updated {asset.updatedAt}</div>
         </div>
       </div>
     </div>

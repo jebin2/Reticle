@@ -2,7 +2,7 @@ import { FolderOpen, Cpu, Play, Pause, Square, Trash2 } from "lucide-react";
 import { type TrainingRun, type Asset } from "../lib/types";
 import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, CLASS_COLORS } from "../lib/constants";
 import { type LogProgress } from "../lib/trainLog";
-import { cardHover, statusBadge } from "../lib/styleUtils";
+import { cardHover, statusBadge, mutedText } from "../lib/styleUtils";
 
 export interface RunCardProps {
   run: TrainingRun;
@@ -96,7 +96,7 @@ export function RunCard({ run, assets, progress, onClick, onStartFresh, onResume
         {run.status === "training" && progress && (
           <div style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 6, background: "var(--bg)", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Epoch {progress.epoch} / {progress.epochs}</span>
+              <span style={mutedText}>Epoch {progress.epoch} / {progress.epochs}</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: "var(--accent)", fontFamily: "monospace" }}>{pct}%</span>
             </div>
             <div style={{ display: "flex", gap: 16 }}>
@@ -127,13 +127,13 @@ export function RunCard({ run, assets, progress, onClick, onStartFresh, onResume
                 fontWeight: 500,
               }}>{a.name}</span>
             ))}
-            {runAssets.length === 0 && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>—</span>}
+            {runAssets.length === 0 && <span style={mutedText}>—</span>}
           </div>
         </div>
 
         {/* Classes */}
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          <div style={mutedText}>
             {run.classMap.length} classes:{" "}
             <span style={{ color: "var(--text)", fontFamily: "monospace" }}>
               {run.classMap.slice(0, 3).join(", ")}{run.classMap.length > 3 ? ` +${run.classMap.length - 3}` : ""}
@@ -147,7 +147,7 @@ export function RunCard({ run, assets, progress, onClick, onStartFresh, onResume
             <FolderOpen size={10} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
             {run.outputPath}
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Updated {run.updatedAt}</div>
+          <div style={mutedText}>Updated {run.updatedAt}</div>
         </div>
       </div>
     </div>

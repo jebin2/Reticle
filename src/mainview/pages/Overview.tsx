@@ -1,6 +1,7 @@
 import { Layers, Cpu, Image, Tag, ArrowRight } from "lucide-react";
 import { type NavPage, type Asset, type TrainingRun } from "../lib/types";
 import { RUN_STATUS_COLORS, RUN_STATUS_LABELS, CLASS_COLORS } from "../lib/constants";
+import { mutedText } from "../lib/styleUtils";
 
 interface Props {
   assets: Asset[];
@@ -128,7 +129,7 @@ function AssetRow({ asset }: { asset: Asset }) {
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", marginBottom: 2 }}>{asset.name}</div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+        <div style={mutedText}>
           {asset.annotatedCount}/{asset.imageCount} images · {asset.classes.length} classes
         </div>
       </div>
@@ -158,7 +159,7 @@ function RunRow({ run }: { run: TrainingRun }) {
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", marginBottom: 2, fontFamily: "monospace" }}>
           {run.name}
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+        <div style={mutedText}>
           {run.baseModel} · {label}{run.mAP != null ? ` · mAP ${run.mAP.toFixed(3)}` : ""}
         </div>
       </div>

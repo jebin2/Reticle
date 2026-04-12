@@ -6,7 +6,7 @@ import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, DEVICES, CLASS_COLORS } from "../
 import { getRPC } from "../lib/rpc";
 import { parseLog, type LogProgress } from "../lib/trainLog";
 import { parseLogLine } from "../lib/logParser";
-import { panel, sectionLabel, statusBadge, dropdownItemHover } from "../lib/styleUtils";
+import { panel, sectionLabel, statusBadge, dropdownItemHover, mutedText, configStripLabel } from "../lib/styleUtils";
 import LogPanel from "./LogPanel";
 
 // ── Config strip helpers ───────────────────────────────────────────────────────
@@ -18,7 +18,7 @@ const CONFIG_VALUE_STYLE: React.CSSProperties = {
 function ConfigStatField({ label, value, width }: { label: string; value: string; width?: number }) {
   return (
     <div style={{ flexShrink: 0, width }}>
-      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
+      <div style={configStripLabel}>{label}</div>
       <div style={{ ...CONFIG_VALUE_STYLE, height: 18 }}>{value}</div>
     </div>
   );
@@ -40,7 +40,7 @@ function ConfigNumField({ label, value, min, max, editable, format, onChange }: 
 
   return (
     <div style={{ flexShrink: 0, width: 58 }}>
-      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
+      <div style={configStripLabel}>{label}</div>
       <div style={{ height: 18, position: "relative" }}>
         <input
           value={editing ? draft : ""}
@@ -82,7 +82,7 @@ function ConfigSelectField({ label, value, options, editable, onChange }: {
 
   return (
     <div ref={ref} style={{ position: "relative", flexShrink: 0, width: 72 }}>
-      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>{label}</div>
+      <div style={configStripLabel}>{label}</div>
       <div style={{ height: 18 }}>
         <div
           onClick={() => { if (editable) setOpen(o => !o); }}
@@ -117,7 +117,7 @@ function MemoryBar({ label, valueMB, peakMB, color }: { label: string; valueMB: 
   const fmt = (mb: number) => mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{label}</span>
+      <span style={mutedText}>{label}</span>
       <div style={{ textAlign: "right" }}>
         <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color }}>{fmt(valueMB)}</span>
         {peakMB > valueMB && <div style={{ fontSize: 10, fontFamily: "monospace", color: "var(--text-muted)" }}>↑ {fmt(peakMB)}</div>}
@@ -492,7 +492,7 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
             <div style={sectionLabel}>Run Configuration</div>
             {([["Model", run.baseModel], ["Epochs", String(run.epochs)], ["Batch", run.batchSize === -1 ? "auto" : String(run.batchSize)], ["Image Size", `${run.imgsz}px`], ["Device", run.device]] as [string, string][]).map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{k}</span>
+                <span style={mutedText}>{k}</span>
                 <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text)" }}>{v}</span>
               </div>
             ))}
@@ -510,7 +510,7 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Annotated images</span>
+                <span style={mutedText}>Annotated images</span>
                 <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700, color: "var(--text)" }}>{runMeta.imageCount}</span>
               </div>
               {(runMeta.newCount > 0 || runMeta.modifiedCount > 0) && (
@@ -520,7 +520,7 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Classes</span>
+                <span style={mutedText}>Classes</span>
                 <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text)" }}>{runMeta.classMap.length}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>

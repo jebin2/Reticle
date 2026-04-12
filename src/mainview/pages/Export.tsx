@@ -6,6 +6,7 @@ import {
 import { type TrainingRun } from "../lib/types";
 import { getRPC, getBridgeUrl } from "../lib/rpc";
 import CustomSelect from "../components/CustomSelect";
+import { mutedText } from "../lib/styleUtils";
 
 // ── format definitions ────────────────────────────────────────────────────────
 
@@ -385,7 +386,7 @@ function DownloadModalOverlay({ label, status, filename, error, onClose }: {
             <div style={{ fontSize: 13, fontFamily: "monospace", fontWeight: 600, color: "var(--text)", wordBreak: "break-all" }}>
               {filename}
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Saved to your Downloads folder</div>
+            <div style={mutedText}>Saved to your Downloads folder</div>
           </>
         )}
 

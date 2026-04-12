@@ -102,10 +102,28 @@ export function dropdownItemHover(selected: boolean) {
   };
 }
 
-export const monoSmall: React.CSSProperties = {
+/** Base muted caption — fontSize 11, text-muted, no font override. */
+export const mutedText: React.CSSProperties = {
   fontSize: 11,
-  fontFamily: "monospace",
   color: "var(--text-muted)",
+};
+
+/** Monospace muted caption — mutedText + monospace font. */
+export const monoSmall: React.CSSProperties = {
+  ...mutedText,
+  fontFamily: "monospace",
+};
+
+/**
+ * Config-strip field label — 10px uppercase muted, used above editable
+ * value cells in the RunDetailView header strip.
+ */
+export const configStripLabel: React.CSSProperties = {
+  fontSize: 10,
+  color: "var(--text-muted)",
+  textTransform: "uppercase",
+  letterSpacing: "0.07em",
+  marginBottom: 2,
 };
 
 export const pageHeader: React.CSSProperties = {
