@@ -7,7 +7,7 @@ import {
 	YOLO_DIR, TRAIN_SCRIPT, INFER_SCRIPT, EXPORT_SCRIPT,
 	YOLO_UTILS_SCRIPT, PUSH_SCRIPT, HUB_LOGS_DIR,
 	VENV_PYTHON, runningProcesses,
-	prepareEnvironment, runInference, runProcess, runWithPTY, streamProcessOutput, checkpointPath,
+	prepareEnvironment, runInference, runProcess, runWithPTY, streamProcessOutput, checkpointPath, modelPath as getModelPath,
 	coalescePipProgress,
 } from "./util";
 import { parseSegmentationLine, isTruePolygon } from "./polygon";
@@ -416,7 +416,7 @@ const rpc = defineElectrobunRPC("bun", {
 			checkWeights: async ({ outputPaths }: { outputPaths: string[] }) => {
 				const results: Record<string, boolean> = {};
 				await Promise.all(outputPaths.map(async p => {
-					results[p] = await Bun.file(join(exp(p), "weights", "weights", "best.pt")).exists();
+					results[p] = await Bun.file(getModelPath(exp(p))).exists();
 				}));
 				return { results };
 			},
@@ -424,11 +424,11 @@ const rpc = defineElectrobunRPC("bun", {
 			runInference: async ({ imagePath, outputPath, confidence }: {
 				imagePath: string; outputPath: string; confidence: number;
 			}) => {
-				const modelPath = join(exp(outputPath), "weights", "weights", "best.pt");
-				if (!(await Bun.file(modelPath).exists()))
+				const weights = getModelPath(exp(outputPath));
+				if (!(await Bun.file(weights).exists()))
 					return { detections: [], inferenceMs: 0, error: "Model weights not found." };
 				return runInference(
-					exp(imagePath), modelPath, confidence,
+					exp(imagePath), weights, confidence,
 					INFER_SCRIPT,
 					join(YOLO_DIR, "infer-setup.log"),
 					"inference",
@@ -436,7 +436,7 @@ const rpc = defineElectrobunRPC("bun", {
 			},
 
 			exportModel: async ({ outputPath, format }: { outputPath: string; format: string }) => {
-				const modelPath = join(exp(outputPath), "weights", "weights", "best.pt");
+				const modelPath = getModelPath(exp(outputPath));
 				if (!(await Bun.file(modelPath).exists()))
 					return { exportedPath: "", fileSize: 0, error: "Model weights not found." };
 				if (format === "pt") {
@@ -460,7 +460,7 @@ const rpc = defineElectrobunRPC("bun", {
 			},
 
 			buildAndDownloadCLI: async ({ outputPath, runName, runId }: { outputPath: string; runName: string; runId: string }) => {
-				const modelPath = join(exp(outputPath), "weights", "weights", "best.pt");
+				const modelPath = getModelPath(exp(outputPath));
 				if (!(await Bun.file(modelPath).exists()))
 					return { filePath: "", filename: "", error: "Model weights not found." };
 
@@ -497,7 +497,7 @@ const rpc = defineElectrobunRPC("bun", {
 		exportCLI: async ({ outputPath, runName, destDir }: {
 				outputPath: string; runName: string; destDir: string;
 			}) => {
-				const modelPath = join(exp(outputPath), "weights", "weights", "best.pt");
+				const modelPath = getModelPath(exp(outputPath));
 				if (!(await Bun.file(modelPath).exists()))
 					return { bundlePath: "", error: "Model weights not found." };
 
@@ -538,7 +538,7 @@ const rpc = defineElectrobunRPC("bun", {
 			},
 
 		downloadExport: async ({ outputPath, format, runName, runId }: { outputPath: string; format: string; runName: string; runId: string }) => {
-				const modelPath = join(exp(outputPath), "weights", "weights", "best.pt");
+				const modelPath = getModelPath(exp(outputPath));
 				if (!(await Bun.file(modelPath).exists()))
 					return { filePath: "", filename: "", error: "Model weights not found." };
 
@@ -623,8 +623,8 @@ const rpc = defineElectrobunRPC("bun", {
 				return {};
 			},
 
-			startHubPush: async ({ modelPath, repoId, token, runName }: {
-				modelPath: string; repoId: string; token: string; runName: string;
+			startHubPush: async ({ outputPath, repoId, token, runName }: {
+				outputPath: string; repoId: string; token: string; runName: string;
 			}) => {
 				const jobId   = crypto.randomUUID();
 				const logPath = join(HUB_LOGS_DIR, `${jobId}.log`);
@@ -651,7 +651,7 @@ const rpc = defineElectrobunRPC("bun", {
 					}
 					const proc = Bun.spawn([VENV_PYTHON, PUSH_SCRIPT], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
 					const safeName = runName.replace(/[^a-zA-Z0-9_-]/g, "_");
-					proc.stdin.write(JSON.stringify({ modelPath: exp(modelPath), repoId, token, fileName: `${safeName}.pt` }));
+					proc.stdin.write(JSON.stringify({ modelPath: getModelPath(exp(outputPath)), repoId, token, fileName: `${safeName}.pt` }));
 					proc.stdin.end();
 					await streamProcessOutput(proc, {
 						stdoutHandler: line => log(line),

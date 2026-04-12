@@ -161,9 +161,15 @@ export async function streamProcessOutput(
 	]);
 }
 
-// Canonical path to the YOLO training checkpoint for a given output directory.
+// Canonical paths to YOLO weight files for a given output directory.
+// The nested "weights/weights" structure is what Ultralytics writes by default
+// when project=outputPath and name="weights".
 export function checkpointPath(outputPath: string): string {
 	return join(outputPath, "weights", "weights", "last.pt");
+}
+
+export function modelPath(outputPath: string): string {
+	return join(outputPath, "weights", "weights", "best.pt");
 }
 
 // ── downloadPythonRuntime ─────────────────────────────────────────────────────

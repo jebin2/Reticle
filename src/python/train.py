@@ -30,6 +30,12 @@ import yaml
 from pathlib import Path
 from logger import emit
 
+# Canonical sub-paths for YOLO weight files.
+# Ultralytics writes these when project=output_path and name="weights".
+WEIGHTS_SUBDIR  = Path("weights") / "weights"
+CHECKPOINT_FILE = WEIGHTS_SUBDIR / "last.pt"
+MODEL_FILE      = WEIGHTS_SUBDIR / "best.pt"
+
 
 def load_model(base_model: str, checkpoint: Path, resuming: bool):
     from ultralytics import YOLO
@@ -271,7 +277,7 @@ def main():
         sys.exit(1)
 
     # Check for a checkpoint from a previous paused run — resume if found.
-    checkpoint = output_path / "weights" / "weights" / "last.pt"
+    checkpoint = output_path / CHECKPOINT_FILE
     resuming   = bool(config.get("resumeFromCheckpoint", checkpoint.exists()))
 
     try:
@@ -315,7 +321,7 @@ def main():
         metrics      = results.results_dict
         mAP50        = round(float(metrics.get(f"metrics/mAP50{suffix}",    0)), 4)
         mAP50_95     = round(float(metrics.get(f"metrics/mAP50-95{suffix}", 0)), 4)
-        weights_path = str(output_path / "weights" / "weights" / "best.pt")
+        weights_path = str(output_path / MODEL_FILE)
     except Exception:
         mAP50 = mAP50_95 = 0.0
         weights_path = ""

@@ -57,15 +57,13 @@ export default function PushHub({ runs }: Props) {
   async function handlePush() {
     const run = doneRuns.find(r => r.id === selectedRunId);
     if (!run) return;
-    const modelPath = `${run.outputPath}/weights/weights/best.pt`;
-
     setPhase("pushing");
     setRawLines([]);
     setDoneUrl(undefined);
     jobIdRef.current = null;
 
     try {
-      const res = await getRPC().request.startHubPush({ modelPath, repoId: repoId.trim(), token: token.trim(), runName: run.name });
+      const res = await getRPC().request.startHubPush({ outputPath: run.outputPath, repoId: repoId.trim(), token: token.trim(), runName: run.name });
       jobIdRef.current = res.jobId;
     } catch (err) {
       setPhase("error");
