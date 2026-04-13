@@ -1,7 +1,7 @@
 import { appendFile, copyFile, mkdir, rm, stat, readdir, unlink } from "fs/promises";
 import { basename, dirname, extname, join } from "path";
 import {
-	TRAIN_SCRIPT, runningProcesses,
+	TRAIN_SCRIPT, MODELS_DIR, runningProcesses,
 	prepareEnvironment, streamProcessOutput, checkpointPath, modelPath as getModelPath,
 } from "../util";
 import { exp, IMAGE_EXTS, detectHasPolygons, listAnnotatedImages, readLogFile, type AnnotatedImageEntry } from "../common";
@@ -172,9 +172,10 @@ export const trainingHandlers = {
 		}
 
 		runningProcesses.set(config.id, proc);
-		// Pass datasetPath to Python; Python writes data.yaml and trains from there.
+		// Pass datasetPath and modelsDir to Python; Python writes data.yaml and trains from there.
+		await mkdir(MODELS_DIR, { recursive: true });
 		const stdin = proc.stdin as import("bun").FileSink;
-		stdin.write(JSON.stringify({ ...config, datasetPath }));
+		stdin.write(JSON.stringify({ ...config, datasetPath, modelsDir: MODELS_DIR }));
 		stdin.end();
 
 		streamProcessOutput(proc, {

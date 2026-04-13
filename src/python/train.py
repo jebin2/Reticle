@@ -39,12 +39,13 @@ CHECKPOINT_FILE = WEIGHTS_SUBDIR / "last.pt"
 MODEL_FILE      = WEIGHTS_SUBDIR / "best.pt"
 
 
-def load_model(base_model: str, checkpoint: Path, resuming: bool):
+def load_model(base_model: str, checkpoint: Path, resuming: bool, models_dir: Path):
     from ultralytics import YOLO
     if resuming:
         emit({"type": "stderr", "text": f"[train] Resuming from checkpoint: {checkpoint}"})
         return YOLO(str(checkpoint))
-    return YOLO(f"{base_model}.pt")
+    cached = models_dir / f"{base_model}.pt"
+    return YOLO(str(cached))
 
 
 def is_cuda_unavailable_error(err: Exception) -> bool:
@@ -230,6 +231,7 @@ def main():
         sys.exit(1)
 
     dataset_path = Path(config["datasetPath"]).expanduser()
+    models_dir   = Path(config["modelsDir"]).expanduser()
     class_map    = config["classMap"]
     base_model   = config["baseModel"]          # e.g. "yolo26n" or "yolo26n-seg"
     epochs       = int(config["epochs"])
@@ -238,6 +240,8 @@ def main():
     device       = config["device"]             # "auto" | "cpu" | "cuda:0" | "mps"
     output_path  = Path(config["outputPath"]).expanduser()
     task         = task_for_model(base_model)   # "segment" | "detect"
+
+    models_dir.mkdir(parents=True, exist_ok=True)
 
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -260,7 +264,7 @@ def main():
     resuming   = bool(config.get("resumeFromCheckpoint", checkpoint.exists()))
 
     try:
-        model = load_model(base_model, checkpoint, resuming)
+        model = load_model(base_model, checkpoint, resuming, models_dir)
     except Exception as e:
         emit({"type": "error", "message": f"Failed to load model: {e}"})
         sys.exit(1)

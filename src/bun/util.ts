@@ -20,6 +20,7 @@ export const EXPORT_SCRIPT     = join(import.meta.dir, "../python/export.py");
 export const YOLO_UTILS_SCRIPT = join(import.meta.dir, "../python/yolo_utils.py");
 export const PUSH_SCRIPT       = join(import.meta.dir, "../python/push_to_hub.py");
 export const HUB_LOGS_DIR      = join(YOLO_DIR, "hub-logs");
+export const MODELS_DIR        = join(YOLO_DIR, "models");
 export const RUNTIME_TARBALL   = join(YOLO_DIR, "python-runtime.tar.gz");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
