@@ -172,18 +172,6 @@ export function useAnnotationData(asset: Asset, onAssetUpdate: (updated: Asset) 
     scheduleSave();
   }
 
-  function flushAndUpdate() {
-    saveNow(images, classes);
-    onAssetUpdate({
-      ...asset,
-      imageCount:     images.length,
-      annotatedCount: images.filter(i => i.annotations.length > 0).length,
-      classes:        classes.map(c => c.name),
-      hasPolygons:    images.some(i => i.annotations.some(a => a.points && a.points.length >= 3)),
-      updatedAt:      "just now",
-    });
-  }
-
   return {
     images, setImages,
     currentIndex, setCurrentIndex,
@@ -194,7 +182,5 @@ export function useAnnotationData(asset: Asset, onAssetUpdate: (updated: Asset) 
     addImages,
     updateAnnotations,
     handleClassesChange,
-    scheduleSave,
-    flushAndUpdate,
   };
 }

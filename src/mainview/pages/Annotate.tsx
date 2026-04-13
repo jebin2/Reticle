@@ -64,7 +64,7 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
     images, currentIndex, setCurrentIndex,
     classes, canvasSrc, importProgress,
     showClassSetup, setShowClassSetup,
-    addImages, updateAnnotations, handleClassesChange, flushAndUpdate,
+    addImages, updateAnnotations, handleClassesChange,
   } = useAnnotationData(asset, onAssetUpdate);
 
   const currentImage = images[currentIndex];
@@ -121,7 +121,7 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
 
       {/* Top bar */}
       <DetailPageHeader
-        onBack={() => { flushAndUpdate(); onBack(); }}
+        onBack={onBack}
         backLabel="Assets"
         title={asset.name}
         meta={
