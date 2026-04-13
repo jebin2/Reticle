@@ -49,11 +49,17 @@ def load_model(base_model: str, checkpoint: Path, resuming: bool, models_dir: Pa
 
 
 def is_cuda_unavailable_error(err: Exception) -> bool:
+    """Return True for CUDA errors where retrying on CPU is the right fix."""
     text = str(err).lower()
+    # Device-level failures: unavailable, launch crash, illegal memory access.
+    # Deliberately excludes OOM ("out of memory") — those need a smaller batch.
     return (
         "cuda-capable device(s) is/are busy or unavailable" in text or
         "cudaerrordevicesunavailable" in text or
-        ("cuda error" in text and "busy or unavailable" in text)
+        "cudaerrorlaunchfailure" in text or
+        "unspecified launch failure" in text or
+        "cudaerrorillegaladdress" in text or
+        "cudaerrorillegalinstruction" in text
     )
 
 
