@@ -84,14 +84,19 @@ export function coalescePipProgress(log: LineHandler): LineHandler {
 }
 
 async function streamPipe(
-	pipe: AsyncIterable<Uint8Array>,
+	pipe: ReturnType<typeof Bun.spawn>["stdout"] | ReturnType<typeof Bun.spawn>["stderr"],
 	onLine?: LineHandler,
 	collect = false,
 ): Promise<string> {
+	if (!pipe || typeof pipe === "number" || !("getReader" in pipe)) return "";
 	const decoder = new TextDecoder();
 	let text = "";
 	let buf = "";
-	for await (const chunk of pipe) {
+	const reader = pipe.getReader();
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		const chunk = value;
 		const decoded = decoder.decode(chunk, { stream: true });
 		if (collect) text += decoded;
 		if (!onLine) continue;
@@ -132,10 +137,10 @@ export async function runProcess(
 		env,
 	});
 	if (runId) runningProcesses.set(runId, proc);
-	if (stdinData !== undefined) {
+	if (stdinData !== undefined && proc.stdin !== null) {
 		proc.stdin.write(stdinData);
 	}
-	proc.stdin.end();
+	proc.stdin?.end();
 	try {
 		const [stdout, stderr, exitCode] = await Promise.all([
 			streamPipe(proc.stdout, stdoutHandler, collectStdout),

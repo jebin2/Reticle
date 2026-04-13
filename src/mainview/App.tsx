@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { type NavPage, type Asset, type TrainingRun } from "./lib/types";
-import { getRPC } from "./lib/rpc";
+import { type NavPage, type Asset } from "./lib/types";
 import Overview  from "./pages/Overview";
 import Assets    from "./pages/Assets";
 import Annotate  from "./pages/Annotate";
@@ -10,35 +9,12 @@ import Train     from "./pages/Train";
 import Inference from "./pages/Inference";
 import Export    from "./pages/Export";
 import PushHub   from "./pages/PushHub";
+import { useStudioState } from "./lib/useStudioState";
 
 export default function App() {
   const [activePage, setActivePage]   = useState<NavPage>("overview");
   const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
-  const [assets, setAssets]           = useState<Asset[]>([]);
-  const [runs, setRuns]               = useState<TrainingRun[]>([]);
-
-  // Track whether initial load is complete so we don't save before loading.
-  const loaded = useRef(false);
-
-  // Load persisted studio data on startup.
-  useEffect(() => {
-    getRPC().request.loadStudio({}).then(data => {
-      setAssets(data.assets);
-      setRuns(data.runs);
-      loaded.current = true;
-    }).catch(err => {
-      console.error("Failed to load studio data:", err);
-      loaded.current = true;
-    });
-  }, []);
-
-  // Auto-save whenever assets or runs change (after initial load).
-  useEffect(() => {
-    if (!loaded.current) return;
-    getRPC().request.saveStudio({ assets, runs }).catch(err => {
-      console.error("Failed to save studio data:", err);
-    });
-  }, [assets, runs]);
+  const { assets, setAssets, runs, setRuns } = useStudioState();
 
   function navigate(page: NavPage) {
     setActivePage(page);

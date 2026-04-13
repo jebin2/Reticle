@@ -3,13 +3,44 @@ import { join, extname, basename, dirname } from "path";
 import { homedir, tmpdir } from "os";
 import {
 	INFER_SCRIPT, YOLO_UTILS_SCRIPT, EXPORT_SCRIPT, VENV_PYTHON,
-	runningProcesses, runProcess, modelPath as getModelPath,
+	runningProcesses, runProcess, modelPath as getModelPath, streamProcessOutput,
 } from "../util";
 import { exp } from "../common";
 
 // Paths to CLI source files — copied into the compile temp dir.
 const CLI_ENTRY  = join(import.meta.dir, "../cli.ts");
 const UTIL_ENTRY = join(import.meta.dir, "../util.ts");
+
+async function buildCLIArtifact(modelPath: string, outBinary: string, runId: string): Promise<string | null> {
+	const buildDir = await mkdtemp(join(tmpdir(), "reticle-cli-"));
+	let stderr = "";
+
+	try {
+		await copyFile(CLI_ENTRY, join(buildDir, "cli.ts"));
+		await copyFile(UTIL_ENTRY, join(buildDir, "util.ts"));
+		await copyFile(modelPath, join(buildDir, "model.pt"));
+		await copyFile(INFER_SCRIPT, join(buildDir, "infer.py"));
+		await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
+
+		const proc = Bun.spawn(
+			[process.execPath, "build", "--compile", "--minify", "--bytecode", join(buildDir, "cli.ts"), "--outfile", outBinary],
+			{ stdout: "pipe", stderr: "pipe" },
+		);
+		runningProcesses.set(runId, proc);
+		try {
+			await streamProcessOutput(proc, {
+				stderrHandler: async line => { stderr += line + "\n"; },
+			});
+			const exitCode = await proc.exited;
+			if (exitCode !== 0) return stderr.trim().split("\n").pop() ?? "Unknown build failure";
+			return null;
+		} finally {
+			runningProcesses.delete(runId);
+		}
+	} finally {
+		await rm(buildDir, { recursive: true, force: true }).catch(() => {});
+	}
+}
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
@@ -48,29 +79,8 @@ export const exportHandlers = {
 		const safeName   = runName.replace(/[^a-zA-Z0-9_-]/g, "_");
 		const binaryName = `${safeName}-cli${process.platform === "win32" ? ".exe" : ""}`;
 		const outBinary  = join(tmpdir(), binaryName);
-
-		const buildDir = await mkdtemp(join(tmpdir(), "reticle-cli-"));
-		try {
-			await copyFile(CLI_ENTRY,         join(buildDir, "cli.ts"));
-			await copyFile(UTIL_ENTRY,        join(buildDir, "util.ts"));
-			await copyFile(modelPath,         join(buildDir, "model.pt"));
-			await copyFile(INFER_SCRIPT,      join(buildDir, "infer.py"));
-			await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
-
-			const proc = Bun.spawn(
-				[process.execPath, "build", "--compile", "--minify", "--bytecode", join(buildDir, "cli.ts"), "--outfile", outBinary],
-				{ stdout: "pipe", stderr: "pipe" },
-			);
-			runningProcesses.set(runId, proc);
-			let stderr = "";
-			for await (const chunk of proc.stderr) stderr += new TextDecoder().decode(chunk);
-			const exitCode = await proc.exited;
-			runningProcesses.delete(runId);
-			if (exitCode !== 0)
-				return { filePath: "", filename: "", error: `Compile failed: ${stderr.trim().split("\n").pop()}` };
-		} finally {
-			await rm(buildDir, { recursive: true, force: true }).catch(() => {});
-		}
+		const buildError = await buildCLIArtifact(modelPath, outBinary, runId);
+		if (buildError) return { filePath: "", filename: "", error: `Compile failed: ${buildError}` };
 
 		return { filePath: outBinary, filename: binaryName, error: null };
 	},
@@ -84,29 +94,8 @@ export const exportHandlers = {
 
 		const safeName  = runName.replace(/[^a-zA-Z0-9_-]/g, "_");
 		const outBinary = join(destDir, `${safeName}-detect${process.platform === "win32" ? ".exe" : ""}`);
-
-		const buildDir = await mkdtemp(join(tmpdir(), "reticle-cli-"));
-		try {
-			await copyFile(CLI_ENTRY,         join(buildDir, "cli.ts"));
-			await copyFile(UTIL_ENTRY,        join(buildDir, "util.ts"));
-			await copyFile(modelPath,         join(buildDir, "model.pt"));
-			await copyFile(INFER_SCRIPT,      join(buildDir, "infer.py"));
-			await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
-
-			const proc = Bun.spawn(
-				[process.execPath, "build", "--compile", "--minify", "--bytecode", join(buildDir, "cli.ts"), "--outfile", outBinary],
-				{ stdout: "pipe", stderr: "pipe" },
-			);
-			runningProcesses.set(runId, proc);
-			let stderr = "";
-			for await (const chunk of proc.stderr) stderr += new TextDecoder().decode(chunk);
-			const exitCode = await proc.exited;
-			runningProcesses.delete(runId);
-			if (exitCode !== 0)
-				return { bundlePath: "", error: `Compile failed: ${stderr.trim().split("\n").pop()}` };
-		} finally {
-			await rm(buildDir, { recursive: true, force: true }).catch(() => {});
-		}
+		const buildError = await buildCLIArtifact(modelPath, outBinary, runId);
+		if (buildError) return { bundlePath: "", error: `Compile failed: ${buildError}` };
 
 		return { bundlePath: outBinary, error: null };
 	},

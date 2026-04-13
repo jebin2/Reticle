@@ -39,7 +39,7 @@ const rpc = defineElectrobunRPC("bun", {
 			...inferenceHandlers,
 			...exportHandlers,
 			...hubHandlers,
-		},
+		} as Record<string, (params?: unknown) => unknown>,
 	},
 });
 

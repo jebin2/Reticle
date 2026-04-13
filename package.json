@@ -4,7 +4,9 @@
 	"description": "Just annotate and train — a standalone desktop app for custom YOLO model training",
 	"scripts": {
 		"dev": "electrobun dev --watch",
-		"build": "electrobun build --env=stable"
+		"build": "electrobun build --env=stable",
+		"typecheck": "bunx tsc --noEmit",
+		"check": "bun run typecheck"
 	},
 	"dependencies": {
 		"electrobun": "^1.16.0",

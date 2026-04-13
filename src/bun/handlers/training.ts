@@ -1,32 +1,22 @@
-import { readdir, mkdir, appendFile, unlink, stat } from "fs/promises";
-import { join, extname } from "path";
+import { mkdir, appendFile, unlink, stat } from "fs/promises";
+import { join } from "path";
 import {
 	TRAIN_SCRIPT, runningProcesses,
 	prepareEnvironment, streamProcessOutput, checkpointPath, modelPath as getModelPath,
 } from "../util";
-import { exp, IMAGE_EXTS, readLogFile, detectHasPolygons } from "../common";
+import { exp, readLogFile, detectHasPolygons, listAnnotatedImages } from "../common";
 
 // ── Dataset snapshot ──────────────────────────────────────────────────────────
 
 export type SnapEntry = { img: string; lbl: string; mtime: number };
 
 async function scanAnnotatedImages(assetPaths: string[]): Promise<SnapEntry[]> {
-	const result: SnapEntry[] = [];
-	for (const assetPath of assetPaths) {
-		const imagesDir = join(exp(assetPath), "images");
-		const labelsDir = join(exp(assetPath), "labels");
-		let entries; try { entries = await readdir(imagesDir, { withFileTypes: true }); } catch { continue; }
-		for (const entry of entries) {
-			if (!entry.isFile() || !IMAGE_EXTS.has(extname(entry.name).toLowerCase())) continue;
-			const lblPath = join(labelsDir, entry.name.slice(0, entry.name.lastIndexOf(".")) + ".txt");
-			const lblFile = Bun.file(lblPath);
-			if (!(await lblFile.exists())) continue;
-			if (!(await lblFile.text()).trim()) continue;
-			const s = await stat(lblPath);
-			result.push({ img: join(imagesDir, entry.name), lbl: lblPath, mtime: Math.floor(s.mtimeMs / 1000) });
-		}
-	}
-	return result;
+	const result = await Promise.all(assetPaths.map(path => listAnnotatedImages(path)));
+	return result.flat().map(entry => ({
+		img: entry.imgPath,
+		lbl: entry.labelPath,
+		mtime: entry.mtime,
+	}));
 }
 
 /**
@@ -132,21 +122,13 @@ export const trainingHandlers = {
 				(meta.images ?? []).map((e: SnapEntry) => [e.img, e.mtime])
 			);
 			let newCount = 0, modifiedCount = 0;
-			for (const assetPath of (meta.assetPaths ?? [])) {
-				const imagesDir = join(exp(assetPath), "images");
-				const labelsDir = join(exp(assetPath), "labels");
-				let entries; try { entries = await readdir(imagesDir, { withFileTypes: true }); } catch { continue; }
-				for (const entry of entries) {
-					if (!entry.isFile() || !IMAGE_EXTS.has(extname(entry.name).toLowerCase())) continue;
-					const lblPath = join(labelsDir, entry.name.slice(0, entry.name.lastIndexOf(".")) + ".txt");
-					const _lf = Bun.file(lblPath);
-					if (!(await _lf.exists())) continue;
-					if (!(await _lf.text()).trim()) continue;
-					const imgPath = join(imagesDir, entry.name);
-					if (!snap.has(imgPath)) { newCount++; continue; }
-					const s = await stat(lblPath);
-					if (Math.floor(s.mtimeMs / 1000) !== snap.get(imgPath)) modifiedCount++;
+			const current = await scanAnnotatedImages(meta.assetPaths ?? []);
+			for (const entry of current) {
+				if (!snap.has(entry.img)) {
+					newCount++;
+					continue;
 				}
+				if (entry.mtime !== snap.get(entry.img)) modifiedCount++;
 			}
 			const assetPaths: string[] = meta.assetPaths ?? [];
 			const polyResults = await Promise.all(assetPaths.map(p => detectHasPolygons(exp(p))));
