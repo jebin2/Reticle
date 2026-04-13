@@ -86,7 +86,7 @@ export default function Assets({ assets, runs, onAssetsChange, onOpenAsset }: Pr
       {deleteTarget && (
         <DeleteConfirmModal
           title="Delete Asset"
-          description={`"${deleteTarget.name}" will be removed from Reticle. This cannot be undone.`}
+          description={`"${deleteTarget.name}" will be removed from Nab. This cannot be undone.`}
           folderPath={deleteTarget.storagePath}
           folderLabel={deleteTarget.storagePath}
           onConfirm={() => { onAssetsChange(assets.filter(a => a.id !== deleteTarget.id)); setDeleteTarget(null); }}
@@ -225,7 +225,7 @@ function NewAssetModal({ assets, runs, onClose, onCreate }: {
   onCreate: (name: string, storagePath: string) => void;
 }) {
   const [name, setName]             = useState("");
-  const [baseFolder, setBaseFolder] = useState("~/.reticle/assets");
+  const [baseFolder, setBaseFolder] = useState("~/.nab/assets");
   const [picking, setPicking]       = useState(false);
 
   const nameConflict = name.trim()

@@ -28,7 +28,7 @@ export default function NewRunModal({ assets, runs, onClose, onCreate }: Props) 
   const [batchSize, setBatchSize]   = useState(DEFAULT_BATCH);
   const [imgsz, setImgsz]           = useState(DEFAULT_IMGSZ);
   const [device, setDevice]         = useState(DEFAULT_DEVICE);
-  const [baseFolder, setBaseFolder] = useState("~/.reticle/runs");
+  const [baseFolder, setBaseFolder] = useState("~/.nab/runs");
   const [picking, setPicking]       = useState(false);
 
   const nameConflict = name.trim()

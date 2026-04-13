@@ -1,5 +1,5 @@
 """
-Reticle inference script — YOLO26 via Ultralytics.
+Nab inference script — YOLO26 via Ultralytics.
 
 Reads JSON config from stdin:
 {

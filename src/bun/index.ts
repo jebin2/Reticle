@@ -47,13 +47,13 @@ const rpc = defineElectrobunRPC("bun", {
 
 const { x, y, width, height } = Screen.getPrimaryDisplay().workArea;
 new BrowserWindow({
-	title: "Reticle",
+	title: "Nab",
 	url:   "views://mainview/index.html",
 	frame: { x, y, width, height },
 	rpc,
 });
 
-console.log(`Reticle started - bridge on port ${server.port}`);
+console.log(`Nab started - bridge on port ${server.port}`);
 
 // ── Graceful shutdown ─────────────────────────────────────────────────────────
 

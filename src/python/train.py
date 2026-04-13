@@ -1,5 +1,5 @@
 """
-Reticle training script — YOLO26 via Ultralytics.
+Nab training script — YOLO26 via Ultralytics.
 
 Called by the Bun process with a JSON config on stdin:
 {

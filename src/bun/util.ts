@@ -8,7 +8,7 @@ import { homedir } from "os";
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 export const IS_WIN            = process.platform === "win32";
-export const YOLO_DIR          = join(homedir(), ".reticle");
+export const YOLO_DIR          = join(homedir(), ".nab");
 export const RUNTIME_DIR       = join(YOLO_DIR, "python-runtime");
 export const VENV_DIR          = join(YOLO_DIR, "venv");
 export const RUNTIME_PYTHON    = join(RUNTIME_DIR, "python", IS_WIN ? "python.exe" : "bin/python3");
@@ -179,7 +179,7 @@ export function modelPath(outputPath: string): string {
 
 // ── downloadPythonRuntime ─────────────────────────────────────────────────────
 // Downloads python-build-standalone for the current OS/arch into the local
-// Reticle cache under ~/.reticle.
+// Nab cache under ~/.nab.
 
 const PYTHON_PLATFORM_MAP: Record<string, string> = {
 	"linux-x64":    "x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
@@ -200,7 +200,7 @@ export async function downloadPythonRuntime(
 	await log(`[setup] Fetching Python runtime info for ${platformKey}...`);
 	const apiRes = await fetch(
 		"https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest",
-		{ headers: { "User-Agent": "Reticle" } },
+		{ headers: { "User-Agent": "Nab" } },
 	);
 	if (!apiRes.ok) throw new Error(`GitHub API error: ${apiRes.status}`);
 
@@ -311,7 +311,7 @@ export async function prepareEnvironment(
 	}
 
 	if (!(await Bun.file(VENV_READY_MARKER).exists())) {
-		await log("[setup] Creating virtual environment at ~/.reticle/venv...");
+		await log("[setup] Creating virtual environment at ~/.nab/venv...");
 		await run([RUNTIME_PYTHON, "-m", "venv", "--clear", VENV_DIR], "venv create");
 		await log("[setup] Virtual environment created.");
 		await log("[setup] Installing ultralytics (first run only - may take a few minutes)...");

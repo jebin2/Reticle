@@ -12,7 +12,7 @@ const CLI_ENTRY  = join(import.meta.dir, "../cli.ts");
 const UTIL_ENTRY = join(import.meta.dir, "../util.ts");
 
 async function buildCLIArtifact(modelPath: string, outBinary: string, runId: string): Promise<string | null> {
-	const buildDir = await mkdtemp(join(tmpdir(), "reticle-cli-"));
+	const buildDir = await mkdtemp(join(tmpdir(), "nab-cli-"));
 	let stderr = "";
 
 	try {

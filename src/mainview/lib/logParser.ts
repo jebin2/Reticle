@@ -1,6 +1,6 @@
 /**
  * Shared primitive for parsing newline-delimited JSON log output produced
- * by Reticle's Python scripts.
+ * by Nab's Python scripts.
  *
  * Each log line is a JSON object with a "type" discriminant.
  * Malformed lines (plain text, partial writes) must be silently ignored

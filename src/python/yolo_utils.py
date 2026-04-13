@@ -1,5 +1,5 @@
 """
-Shared utilities for Reticle Python scripts.
+Shared utilities for Nab Python scripts.
 """
 
 import os

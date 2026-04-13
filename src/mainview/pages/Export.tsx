@@ -190,7 +190,7 @@ export default function Export({ runs }: Props) {
                 </div>
                 <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 16 }}>
                   Compiles a single self-contained binary (via Bun) that embeds the model and inference script.
-                  Download it, make it executable, and run it from any terminal — no Python or Reticle needed.
+                  Download it, make it executable, and run it from any terminal — no Python or Nab needed.
                   On first run it auto-creates a venv and installs ultralytics; subsequent runs are instant.
                 </p>
 

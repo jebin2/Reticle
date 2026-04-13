@@ -1,5 +1,5 @@
 """
-Reticle model export script — YOLO26 via Ultralytics.
+Nab model export script — YOLO26 via Ultralytics.
 
 Reads JSON from stdin:
   { "modelPath": "/abs/path/best.pt", "format": "onnx" }

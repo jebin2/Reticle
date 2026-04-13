@@ -30,7 +30,7 @@ export default function Sidebar({ activePage, onNavigate }: Props) {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <img src="icon.png" width={28} height={28} style={{ flexShrink: 0, borderRadius: 4 }} />
           <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.3px", color: "var(--text)" }}>
-            Reticle
+            Nab
           </span>
         </div>
       </div>

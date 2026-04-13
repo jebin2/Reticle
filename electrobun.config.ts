@@ -2,8 +2,8 @@ import type { ElectrobunConfig } from "electrobun";
 
 export default {
 	app: {
-		name: "Reticle",
-		identifier: "reticle.app",
+		name: "Nab",
+		identifier: "nab.app",
 		version: "0.1.0",
 		icon: "resources/icon_transparent.png",
 	},

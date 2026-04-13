@@ -1,4 +1,4 @@
-"""Shared JSON-line output helper for all Reticle Python scripts."""
+"""Shared JSON-line output helper for all Nab Python scripts."""
 
 import json
 

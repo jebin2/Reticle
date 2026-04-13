@@ -4,7 +4,7 @@
  * YOLO segmentation format: class x1 y1 x2 y2 ... (≥7 tokens, even coord count)
  * YOLO detection format:    class cx cy w h        (5 tokens)
  *
- * When Reticle saves a plain bbox as a segmentation label it emits the four
+ * When Nab saves a plain bbox as a segmentation label it emits the four
  * corners in TL→TR→BR→BL order.  That axis-aligned rectangle is not a "real"
  * polygon — we treat it as bbox-only so hasPolygons stays false.
  */

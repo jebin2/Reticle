@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reticle Standalone CLI — run YOLO inference from your terminal.
+Nab Standalone CLI — run YOLO inference from your terminal.
 
 Usage:
   ./run.sh <image_path> [options]
@@ -26,7 +26,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Reticle YOLO Inference CLI",
+        description="Nab YOLO Inference CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

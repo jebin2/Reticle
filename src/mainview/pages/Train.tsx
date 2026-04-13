@@ -165,7 +165,7 @@ export default function Train({ assets, runs, onRunsChange }: Props) {
       {deleteTarget && (
         <DeleteConfirmModal
           title="Delete Training Run"
-          description={`"${deleteTarget.name}" will be removed from Reticle. This cannot be undone.`}
+          description={`"${deleteTarget.name}" will be removed from Nab. This cannot be undone.`}
           folderPath={deleteTarget.outputPath}
           folderLabel={deleteTarget.outputPath}
           onConfirm={() => { onRunsChange(runs.filter(r => r.id !== deleteTarget.id)); setDeleteTarget(null); }}

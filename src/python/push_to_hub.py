@@ -1,5 +1,5 @@
 """
-Reticle HuggingFace Hub push script.
+Nab HuggingFace Hub push script.
 
 Called by the Bun process with JSON config on stdin:
 {

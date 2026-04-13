@@ -1,8 +1,8 @@
-# Reticle
+# Nab
 
 Train custom object detection models without writing a single line of code or opening a terminal.
 
-Reticle is a desktop application that brings the full YOLO training pipeline — annotation, training, inference, and export — into a single point-and-click interface. Whether you're building a quality control system, a wildlife monitor, or a custom detector for any domain, Reticle handles the complexity so you can focus on your data and results.
+Nab is a desktop application that brings the full YOLO training pipeline — annotation, training, inference, and export — into a single point-and-click interface. Whether you're building a quality control system, a wildlife monitor, or a custom detector for any domain, Nab handles the complexity so you can focus on your data and results.
 
 ---
 
@@ -20,7 +20,7 @@ Draw bounding boxes directly on your images using a canvas-based annotation tool
 Organize your images into named datasets called Assets. Drag and drop images in, see a thumbnail grid, track how many images are annotated, and control your train/validation split before training.
 
 ### Train Models
-Kick off a training run with a few clicks. Pick a base YOLO model size, set your epochs and batch size, choose which datasets to train on, and watch live loss curves and streamed logs as training runs. Reticle handles the environment setup automatically.
+Kick off a training run with a few clicks. Pick a base YOLO model size, set your epochs and batch size, choose which datasets to train on, and watch live loss curves and streamed logs as training runs. Nab handles the environment setup automatically.
 
 - Choose model size: nano, small, medium, large, or extra-large
 - Configure epochs, batch size, image resolution, and compute device
@@ -70,7 +70,7 @@ Click into an asset to open the **Annotate** view. Add your object classes in th
 | `Delete` | Remove selected annotation |
 
 ### 3. Create a Training Run
-Go to the **Train** page and create a new run. Select one or more assets, choose a YOLO base model, and set your training parameters. Hit **Start** — Reticle installs any missing dependencies on the first run, then begins training.
+Go to the **Train** page and create a new run. Select one or more assets, choose a YOLO base model, and set your training parameters. Hit **Start** — Nab installs any missing dependencies on the first run, then begins training.
 
 ### 4. Monitor Progress
 Watch live loss curves and log output stream in as training proceeds. Runs can be paused and resumed. When training finishes, a trained model is ready immediately.
@@ -91,4 +91,4 @@ The **Overview** page gives you a quick summary of your workspace — total asse
 
 ## Data and Privacy
 
-Everything stays local. Reticle stores your images, annotations, training weights, and run history on your own machine. Nothing is uploaded unless you explicitly push to Hugging Face Hub.
+Everything stays local. Nab stores your images, annotations, training weights, and run history on your own machine. Nothing is uploaded unless you explicitly push to Hugging Face Hub.

@@ -24,15 +24,15 @@ jobs:
         run: |
           tar -xzf artifacts/stable-linux-*-Setup.tar.gz ./installer
           chmod +x installer
-          cp scripts/linux-install-template.sh Reticle-Linux.sh
-          LINES=$(wc -l < Reticle-Linux.sh)
+          cp scripts/linux-install-template.sh Nab-Linux.sh
+          LINES=$(wc -l < Nab-Linux.sh)
           LINES=$((LINES + 1))
-          sed -i "s/__LINES__/$LINES/" Reticle-Linux.sh
-          base64 -w 0 installer >> Reticle-Linux.sh
-          chmod +x Reticle-Linux.sh
+          sed -i "s/__LINES__/$LINES/" Nab-Linux.sh
+          base64 -w 0 installer >> Nab-Linux.sh
+          chmod +x Nab-Linux.sh
       - uses: softprops/action-gh-release@v1
         with:
-          files: Reticle-Linux.sh
+          files: Nab-Linux.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -57,10 +57,10 @@ jobs:
           mkdir dmg-staging
           cp -r "$APP" dmg-staging/
           ln -s /Applications dmg-staging/Applications
-          hdiutil create -volname "Reticle" -srcfolder dmg-staging -ov -format UDZO Reticle-macOS.dmg
+          hdiutil create -volname "Nab" -srcfolder dmg-staging -ov -format UDZO Nab-macOS.dmg
       - uses: softprops/action-gh-release@v1
         with:
-          files: Reticle-macOS.dmg
+          files: Nab-macOS.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -92,9 +92,9 @@ jobs:
           Copy-Item installer-icon.ico setup_extracted\installer-icon.ico
           Copy-Item scripts/installer.nsi installer.nsi
           & "C:\Program Files (x86)\NSIS\makensis.exe" /DICON_PATH=installer-icon.ico installer.nsi
-          Write-Host "=== Created: $(Get-Item Reticle-Windows.exe | Select-Object Name, Length) ==="
+          Write-Host "=== Created: $(Get-Item Nab-Windows.exe | Select-Object Name, Length) ==="
       - uses: softprops/action-gh-release@v1
         with:
-          files: Reticle-Windows.exe
+          files: Nab-Windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

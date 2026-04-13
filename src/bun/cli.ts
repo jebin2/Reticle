@@ -1,5 +1,5 @@
 /**
- * Reticle Standalone CLI
+ * Nab Standalone CLI
  * Compiled via: bun build --compile cli.ts --outfile <name>-detect
  *
  * Usage:
@@ -29,7 +29,7 @@ if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
 	console.log(`Usage: ./${basename(Bun.argv[1])} <image.jpg> [options]`);
 	console.log("\nOptions:");
 	console.log("  --conf         Confidence threshold 0–1  (default: 0.5)");
-	console.log("  --log_path     Save setup log to file    (default: ~/.reticle/cli-setup.log)");
+	console.log("  --log_path     Save setup log to file    (default: ~/.nab/cli-setup.log)");
 	console.log("  --output_path  Save detections as JSON   (default: none)");
 	process.exit(0);
 }
@@ -50,7 +50,7 @@ if (!existsSync(imagePath)) {
 	process.exit(1);
 }
 
-// ── Extract embedded model → ~/.reticle/models/ (cached by content hash) ──
+// ── Extract embedded model → ~/.nab/models/ (cached by content hash) ──
 
 const modelBytes = await Bun.file(modelPtPath).bytes();
 const modelHash = createHash("sha1").update(modelBytes.slice(0, 4096)).digest("hex").slice(0, 8);
@@ -65,7 +65,7 @@ if (!existsSync(modelPath)) {
 
 // ── Extract embedded Python helpers → temp ───────────────────────────────────
 
-const inferDir = await mkdtemp(join(tmpdir(), "reticle-infer-"));
+const inferDir = await mkdtemp(join(tmpdir(), "nab-infer-"));
 const inferPyTmpPath = join(inferDir, "infer.py");
 await writeFile(inferPyTmpPath, await Bun.file(inferPyPath).text());
 await writeFile(join(inferDir, "yolo_utils.py"), await Bun.file(yoloUtilsPyPath).text());
