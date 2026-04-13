@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   ChevronLeft, ChevronRight, SkipForward,
   Maximize2, Hand, Square, Lasso, ZoomIn, ZoomOut, Trash2,
@@ -8,11 +8,11 @@ import AnnotationCanvas, { type CanvasHandle } from "../components/AnnotationCan
 import ImageList from "../components/ImageList";
 import ClassPanel from "../components/ClassPanel";
 import UploadZone from "../components/UploadZone";
-import { type BBox, type ClassDef, type AnnotateTool, type ImageEntry, bboxToPoints } from "../lib/annotationTypes";
+import { type AnnotateTool, bboxToPoints } from "../lib/annotationTypes";
 import { type Asset } from "../lib/types";
-import { loadImageSrc } from "../lib/imageLoader";
-import { getRPC } from "../lib/rpc";
 import { CLASS_COLORS } from "../lib/constants";
+import { useAnnotationData } from "../lib/useAnnotationData";
+import { useAnnotationKeys } from "../lib/useAnnotationKeys";
 
 // ── toolbar types ─────────────────────────────────────────────────────────────
 
@@ -38,8 +38,8 @@ const TOOLBAR: ToolbarEntry[] = [
   "divider",
   { kind: "action", action: "delete",  Icon: Trash2,       title: "Delete selected (Del)" },
   "divider",
-  { kind: "action", action: "prev",    Icon: ChevronLeft,  title: "Previous image (A)" },
-  { kind: "action", action: "next",    Icon: ChevronRight, title: "Next image (D)" },
+  { kind: "action", action: "prev",    Icon: ChevronLeft,  title: "Previous image (←)" },
+  { kind: "action", action: "next",    Icon: ChevronRight, title: "Next image (→)" },
   { kind: "action", action: "skip",    Icon: SkipForward,  title: "Skip image" },
 ];
 
@@ -52,214 +52,29 @@ interface Props {
 }
 
 export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
-  const [images, setImages]                     = useState<ImageEntry[]>([]);
-  const [currentIndex, setCurrentIndex]         = useState(0);
-  const [classes, setClasses]                   = useState<ClassDef[]>([]);
   const [activeClassIndex, setActiveClassIndex] = useState(0);
   const [tool, setTool]                         = useState<AnnotateTool>("hand");
   const [selectedId, setSelectedId]             = useState<string | null>(null);
   const [zoom, setZoom]                         = useState(100);
   const [coords, setCoords]                     = useState({ x: 0, y: 0 });
-  const [canvasSrc, setCanvasSrc]               = useState("");
-  const [importProgress, setImportProgress]     = useState<{ done: number; total: number } | null>(null);
-  const [showClassSetup, setShowClassSetup]     = useState(false);
 
   const canvasRef    = useRef<CanvasHandle>(null);
+
+  const {
+    images, currentIndex, setCurrentIndex,
+    classes, canvasSrc, importProgress,
+    showClassSetup, setShowClassSetup,
+    addImages, updateAnnotations, handleClassesChange, flushAndUpdate,
+  } = useAnnotationData(asset, onAssetUpdate);
+
   const currentImage = images[currentIndex];
-
-  // Keep latest images/classes accessible in debounced save without stale closures.
-  const imagesRef  = useRef(images);
-  const classesRef = useRef(classes);
-  imagesRef.current  = images;
-  classesRef.current = classes;
-
-  // Prevents saving before the initial load completes.
-  const loadedRef    = useRef(false);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Tracks the current canvas blob URL so we can revoke it when navigating away.
-  const canvasSrcRef = useRef("");
-
-  // Force-save and sync asset state on unmount (covers navigating away via sidebar).
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      if (loadedRef.current) {
-        saveNow(imagesRef.current, classesRef.current);
-        onAssetUpdate({
-          ...asset,
-          imageCount:     imagesRef.current.length,
-          annotatedCount: imagesRef.current.filter(i => i.annotations.length > 0).length,
-          classes:        classesRef.current.map(c => c.name),
-          hasPolygons:    imagesRef.current.some(i => i.annotations.some(a => a.points && a.points.length >= 3)),
-          updatedAt:      "just now",
-        });
-      }
-      if (canvasSrcRef.current.startsWith("blob:")) URL.revokeObjectURL(canvasSrcRef.current);
-    };
-  }, []);
-
-  // ── persistence ───────────────────────────────────────────────────────────
-
-  // Load images, labels, and classes from the asset's storagePath on open.
-  useEffect(() => {
-    loadedRef.current = false;
-    setImages([]);
-    setClasses([]);
-    setCurrentIndex(0);
-
-    getRPC().request.loadAssetData({ storagePath: asset.storagePath }).then(data => {
-      const entries: ImageEntry[] = data.images.map(img => ({
-        id:          crypto.randomUUID(),
-        filename:    img.filename,
-        src:         "",
-        filePath:    img.filePath,
-        annotations: (data.labels[img.filename] ?? []).map(a => ({
-          id:         crypto.randomUUID(),
-          classIndex: a.classIndex,
-          cx:         a.cx,
-          cy:         a.cy,
-          w:          a.w,
-          h:          a.h,
-          points:     a.points,
-        })),
-      }));
-      setImages(entries);
-      const loaded = data.classes.map((name, i) => ({
-        name,
-        color: CLASS_COLORS[i % CLASS_COLORS.length],
-      }));
-      setClasses(loaded);
-      if (loaded.length === 0) setShowClassSetup(true);
-      loadedRef.current = true;
-    }).catch(() => {
-      setShowClassSetup(true);
-      loadedRef.current = true;
-    });
-  }, [asset.id]);
-
-  function saveNow(imgs: ImageEntry[], cls: ClassDef[]) {
-    const labels: Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number; points?: Array<{ x: number; y: number }> }>> = {};
-    for (const img of imgs) {
-      labels[img.filename] = img.annotations.map(({ classIndex, cx, cy, w, h, points }) => ({ classIndex, cx, cy, w, h, points }));
-    }
-    getRPC().request.saveAnnotations({
-      storagePath: asset.storagePath,
-      labels,
-      classes: cls.map(c => c.name),
-    }).catch(err => console.error("Failed to save annotations:", err));
-  }
-
-  // Schedule a debounced save (200 ms). Uses refs so the timeout always sees
-  // the latest images/classes regardless of when it fires.
-  function scheduleSave() {
-    if (!loadedRef.current) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      saveNow(imagesRef.current, classesRef.current);
-    }, 200);
-  }
-
-  // ── image loading ─────────────────────────────────────────────────────────
-
-  // Copy images into storagePath/images/ in batches, reporting progress.
-  async function addImages(entries: ImageEntry[]) {
-    const BATCH = 20;
-    setImportProgress({ done: 0, total: entries.length });
-    const allImported: Array<{ filename: string; filePath: string }> = [];
-    try {
-      for (let i = 0; i < entries.length; i += BATCH) {
-        const batch = entries.slice(i, i + BATCH);
-        const files = batch.map(e => ({
-          filename:   e.filename,
-          sourcePath: e.filePath,
-          dataUrl:    !e.filePath ? e.src : undefined,
-        }));
-        const { images: imported } = await getRPC().request.importImages({
-          storagePath: asset.storagePath, files,
-        });
-        allImported.push(...imported);
-        setImportProgress({ done: Math.min(i + BATCH, entries.length), total: entries.length });
-      }
-    } catch (err) {
-      console.error("Failed to import images:", err);
-    } finally {
-      setImportProgress(null);
-    }
-    if (allImported.length === 0) return;
-    const newEntries: ImageEntry[] = entries.slice(0, allImported.length).map((entry, i) => ({
-      ...entry,
-      src:      "",
-      filename: allImported[i]?.filename ?? entry.filename,
-      filePath: allImported[i]?.filePath ?? entry.filePath,
-    }));
-    setImages(prev => {
-      const existing = new Set(prev.map(img => img.filename));
-      const toAdd = newEntries.filter(e => !existing.has(e.filename));
-      return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
-    });
-    scheduleSave();
-  }
-
-  // Fetch the canvas image independently of thumbnails.
-  // Revokes the previous blob URL before loading the next one.
-  useEffect(() => {
-    if (canvasSrcRef.current.startsWith("blob:")) {
-      URL.revokeObjectURL(canvasSrcRef.current);
-      canvasSrcRef.current = "";
-    }
-
-    const img = images[currentIndex];
-    if (!img) { setCanvasSrc(""); return; }
-    if (img.src)      { setCanvasSrc(img.src); canvasSrcRef.current = img.src; return; }
-    if (!img.filePath) return;
-
-    let canceled = false;
-    loadImageSrc(img).then(src => {
-      if (canceled) { URL.revokeObjectURL(src); return; }
-      canvasSrcRef.current = src;
-      setCanvasSrc(src);
-    }).catch(() => {});
-    return () => { canceled = true; };
-  }, [currentIndex, images[currentIndex]?.id]);
-
-  // ── annotations ───────────────────────────────────────────────────────────
-
-  function updateAnnotations(anns: BBox[]) {
-    setImages(prev => prev.map((img, i) => i === currentIndex ? { ...img, annotations: anns } : img));
-    scheduleSave();
-  }
-
-  function handleClassesChange(newClasses: ClassDef[]) {
-    setClasses(newClasses);
-    scheduleSave();
-  }
-
-  // ── navigation ────────────────────────────────────────────────────────────
 
   function navigate(delta: number) {
     setSelectedId(null);
     setCurrentIndex(prev => Math.max(0, Math.min(images.length - 1, prev + delta)));
   }
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "ArrowLeft") navigate(-1);
-      if (e.key === "ArrowRight") navigate(1);
-      if (e.key === "h" || e.key === "H") setTool("hand");
-      if (e.key === "b" || e.key === "B") setTool("box");
-      if (e.key === "p" || e.key === "P") setTool("polygon");
-      if (e.key === "f" || e.key === "F") canvasRef.current?.fitImage();
-      if (e.key === "+" || e.key === "=") canvasRef.current?.zoomIn();
-      if (e.key === "-") canvasRef.current?.zoomOut();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [images.length, currentIndex]);
-
-  // ── derived state ─────────────────────────────────────────────────────────
+  useAnnotationKeys(images.length, setTool, navigate, canvasRef);
 
   const annotatedCount = useMemo(
     () => images.filter(i => i.annotations.length > 0).length,
@@ -306,25 +121,14 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
 
       {/* Top bar */}
       <DetailPageHeader
-        onBack={() => {
-          saveNow(images, classes);
-          onAssetUpdate({
-            ...asset,
-            imageCount:     images.length,
-            annotatedCount: images.filter(i => i.annotations.length > 0).length,
-            classes:        classes.map(c => c.name),
-            hasPolygons:    images.some(i => i.annotations.some(a => a.points && a.points.length >= 3)),
-            updatedAt:      "just now",
-          });
-          onBack();
-        }}
+        onBack={() => { flushAndUpdate(); onBack(); }}
         backLabel="Assets"
         title={asset.name}
         meta={
           <span style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 12 }}>
             {images.length > 0 ? `${currentIndex + 1} / ${images.length}` : "No images"}
             {images.length > 0 && (
-              <span style={{ opacity: 0.6, fontSize: 11 }}>A · D to navigate</span>
+              <span style={{ opacity: 0.6, fontSize: 11 }}>← → to navigate</span>
             )}
             {images.length > 0 && (
               <span>{annotatedCount}/{images.length} annotated</span>
@@ -473,9 +277,8 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
         <ClassSetupModal
           onSave={names => {
             const newClasses = names.map((name, i) => ({ name, color: CLASS_COLORS[i % CLASS_COLORS.length] }));
-            setClasses(newClasses);
+            handleClassesChange(newClasses);
             setShowClassSetup(false);
-            scheduleSave();
           }}
         />
       )}

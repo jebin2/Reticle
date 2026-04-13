@@ -4,7 +4,7 @@ import { join, extname, basename } from "path";
 import { homedir } from "os";
 import { YOLO_DIR } from "../util";
 import { exp, IMAGE_EXTS, detectHasPolygons } from "../common";
-import { parseSegmentationLine, isTruePolygon } from "../polygon";
+import { parseYoloLabels, serializeYoloLabels, type AnnotationRecord } from "../yoloLabels";
 
 // ── Dialog path helpers ───────────────────────────────────────────────────────
 
@@ -123,33 +123,11 @@ export const assetHandlers = {
 		await mkdir(imagesDir, { recursive: true });
 		await mkdir(labelsDir, { recursive: true });
 		const imageFiles = (await readdir(imagesDir)).filter(f => IMAGE_EXTS.has(extname(f).toLowerCase()));
-		const labels: Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number; points?: Array<{ x: number; y: number }> }>> = {};
+		const labels: Record<string, AnnotationRecord[]> = {};
 		for (const filename of imageFiles) {
 			const labelPath = join(labelsDir, filename.replace(/\.[^.]+$/, ".txt"));
 			try {
-				const text = await Bun.file(labelPath).text();
-				labels[filename] = text.trim().split("\n").filter(Boolean).map(line => {
-					const parts = line.split(" ").map(Number);
-					const classIndex = parts[0];
-					// YOLO segmentation: class x1 y1 x2 y2 ... (≥7 tokens, even count of coords)
-					const segPts = parseSegmentationLine(line);
-					if (segPts) {
-						const xs = segPts.map(p => p.x);
-						const ys = segPts.map(p => p.y);
-						const minX = Math.min(...xs), maxX = Math.max(...xs);
-						const minY = Math.min(...ys), maxY = Math.max(...ys);
-						const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-						const w  = maxX - minX,       h  = maxY - minY;
-						// If the polygon is exactly the 4-corner axis-aligned rectangle that
-						// saveAnnotations generates for a plain bbox (TL TR BR BL), treat it
-						// as a bbox — don't set points — so hasPolygons stays false.
-						return isTruePolygon(segPts)
-							? { classIndex, cx, cy, w, h, points: segPts }
-							: { classIndex, cx, cy, w, h };
-					}
-					const [ci, cx, cy, w, h] = parts;
-					return { classIndex: ci, cx, cy, w, h };
-				});
+				labels[filename] = parseYoloLabels(await Bun.file(labelPath).text());
 			} catch { labels[filename] = []; }
 		}
 		let classes: string[] = [];
@@ -162,24 +140,14 @@ export const assetHandlers = {
 
 	saveAnnotations: async ({ storagePath, labels, classes }: {
 		storagePath: string;
-		labels: Record<string, Array<{ classIndex: number; cx: number; cy: number; w: number; h: number; points?: Array<{ x: number; y: number }> }>>;
+		labels: Record<string, AnnotationRecord[]>;
 		classes: string[];
 	}) => {
 		const labelsDir = join(exp(storagePath), "labels");
 		await mkdir(labelsDir, { recursive: true });
 		for (const [filename, anns] of Object.entries(labels)) {
 			const labelPath = join(labelsDir, filename.replace(/\.[^.]+$/, ".txt"));
-			const content   = anns.map(a => {
-				let pts = a.points;
-				if (!pts || pts.length < 3) {
-					// Convert bbox to 4-corner polygon (TL, TR, BR, BL)
-					const l = a.cx - a.w / 2, r = a.cx + a.w / 2;
-					const t = a.cy - a.h / 2, b = a.cy + a.h / 2;
-					pts = [{ x: l, y: t }, { x: r, y: t }, { x: r, y: b }, { x: l, y: b }];
-				}
-				return `${a.classIndex} ${pts.map(p => `${p.x.toFixed(6)} ${p.y.toFixed(6)}`).join(" ")}`;
-			}).join("\n");
-			await Bun.write(labelPath, content);
+			await Bun.write(labelPath, serializeYoloLabels(anns));
 		}
 		await Bun.write(join(exp(storagePath), "classes.txt"), classes.join("\n"));
 		return {};
