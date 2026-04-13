@@ -61,11 +61,6 @@ When creating a training run, Nab inspects every selected asset's annotations an
 | **Pause** | `training` | Sends SIGKILL to the trainer; checkpoint is preserved so Resume works |
 | **Stop** | `training` / `paused` | Sends SIGKILL and deletes the checkpoint; run returns to `idle` |
 
-### Dataset snapshot on Resume
+### Dataset on Resume
 
-Resuming does not re-scan all assets from scratch. Instead it diffs against the snapshot saved at the last Start:
-
-- Images whose label file was **deleted or emptied** are dropped from the run.
-- Images whose label file was **modified** are updated in place (new mtime recorded).
-- Images **added after the last Start** are appended to the dataset.
-- The class map is preserved from the original run (no remapping on resume).
+The asset folders are rescanned on every Resume, so the dataset reflects whatever is on disk at that moment — new images are included, deleted or emptied ones are dropped. The class map is preserved from the original run.
