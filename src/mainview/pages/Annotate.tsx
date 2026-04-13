@@ -241,17 +241,19 @@ export default function Annotate({ asset, onAssetUpdate, onBack }: Props) {
     setCurrentIndex(prev => Math.max(0, Math.min(images.length - 1, prev + delta)));
   }
 
-  // A / D / H / B / P / F keyboard shortcuts
+  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "a" || e.key === "A") navigate(-1);
-      if (e.key === "d" || e.key === "D") navigate(1);
+      if (e.key === "ArrowLeft") navigate(-1);
+      if (e.key === "ArrowRight") navigate(1);
       if (e.key === "h" || e.key === "H") setTool("hand");
       if (e.key === "b" || e.key === "B") setTool("box");
       if (e.key === "p" || e.key === "P") setTool("polygon");
       if (e.key === "f" || e.key === "F") canvasRef.current?.fitImage();
+      if (e.key === "+" || e.key === "=") canvasRef.current?.zoomIn();
+      if (e.key === "-") canvasRef.current?.zoomOut();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
