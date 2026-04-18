@@ -1,116 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Play, Pause, Square, Terminal, ChevronDown, Info } from "lucide-react";
+import { Play, Pause, Square, Terminal, Info } from "lucide-react";
 import DetailPageHeader, { HeaderBtn } from "./DetailPageHeader";
 import { type TrainingRun } from "../lib/types";
-import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, DEVICES, CLASS_COLORS } from "../lib/constants";
+import { RUN_STATUS_LABELS, RUN_STATUS_COLORS, CLASS_COLORS } from "../lib/constants";
 import { getRPC } from "../lib/rpc";
 import { parseLog, type LogProgress } from "../lib/trainLog";
 import { parseLogLine } from "../lib/logParser";
-import { panel, sectionLabel, statusBadge, dropdownItemHover, mutedText, configStripLabel } from "../lib/styleUtils";
-import { BASE_MODELS_DET, BASE_MODELS_SEG } from "../lib/constants";
+import { panel, sectionLabel, statusBadge, mutedText } from "../lib/styleUtils";
 import LogPanel from "./LogPanel";
-
-// ── Config strip helpers ───────────────────────────────────────────────────────
-
-const CONFIG_VALUE_STYLE: React.CSSProperties = {
-  fontSize: 12, lineHeight: "18px", fontFamily: "monospace", color: "var(--text)",
-};
-
-function ConfigStatField({ label, value, width }: { label: string; value: string; width?: number }) {
-  return (
-    <div style={{ flexShrink: 0, width }}>
-      <div style={configStripLabel}>{label}</div>
-      <div style={{ ...CONFIG_VALUE_STYLE, height: 18 }}>{value}</div>
-    </div>
-  );
-}
-
-function ConfigNumField({ label, value, min, max, editable, format, onChange }: {
-  label: string; value: number; min: number; max: number;
-  editable: boolean; format?: (v: number) => string; onChange: (v: number) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const display = format ? format(value) : String(value);
-
-  function commit(raw: string) {
-    const n = parseInt(raw, 10);
-    if (!isNaN(n) && n >= min && n <= max) onChange(n);
-    setEditing(false);
-  }
-
-  return (
-    <div style={{ flexShrink: 0, width: 58 }}>
-      <div style={configStripLabel}>{label}</div>
-      <div style={{ height: 18, position: "relative" }}>
-        <input
-          value={editing ? draft : ""}
-          onChange={e => setDraft(e.target.value)}
-          onFocus={() => { setDraft(String(value)); setEditing(true); }}
-          onBlur={() => commit(draft)}
-          onKeyDown={e => { if (e.key === "Enter") commit(draft); if (e.key === "Escape") { setEditing(false); (e.target as HTMLInputElement).blur(); } }}
-          readOnly={!editing}
-          style={{
-            ...CONFIG_VALUE_STYLE,
-            position: "absolute", inset: 0, width: "100%",
-            padding: 0, margin: 0, background: "transparent",
-            border: "none", borderBottom: editing ? "1px solid var(--accent)" : editable ? "1px dashed var(--border)" : "1px solid transparent",
-            outline: "none", cursor: editable ? "text" : "default",
-            color: editing ? "var(--text)" : "transparent",
-          }}
-        />
-        {!editing && <div style={{ ...CONFIG_VALUE_STYLE, pointerEvents: "none" }}>{display}</div>}
-      </div>
-    </div>
-  );
-}
-
-function ConfigSelectField({ label, value, options, editable, onChange }: {
-  label: string; value: string; options: string[];
-  editable: boolean; onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  return (
-    <div ref={ref} style={{ position: "relative", flexShrink: 0, width: 72 }}>
-      <div style={configStripLabel}>{label}</div>
-      <div style={{ height: 18 }}>
-        <div
-          onClick={() => { if (editable) setOpen(o => !o); }}
-          title={editable ? "Click to edit" : undefined}
-          style={{ ...CONFIG_VALUE_STYLE, cursor: editable ? "pointer" : "default", display: "flex", alignItems: "center", gap: 4, borderBottom: editable ? "1px dashed var(--border)" : "1px solid transparent" }}
-        >
-          {value}
-          {editable && <ChevronDown size={10} style={{ opacity: 0.5 }} />}
-        </div>
-      </div>
-      {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200, minWidth: 90, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", overflow: "hidden" }}>
-          {options.map(opt => (
-            <div
-              key={opt}
-              onClick={() => { onChange(opt); setOpen(false); }}
-              style={{ padding: "7px 10px", fontSize: 12, fontFamily: "monospace", cursor: "pointer", color: opt === value ? "var(--accent)" : "var(--text)", background: opt === value ? "rgba(59,130,246,0.08)" : "transparent" }}
-              {...dropdownItemHover(opt === value)}
-            >
-              {opt}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import RunConfigStrip from "./RunConfigStrip";
+import TrainingMetricsHelpModal from "./TrainingMetricsHelpModal";
+import DatasetUpdateModal, { type DatasetUpdateMeta } from "./DatasetUpdateModal";
 
 // ── MemoryBar ─────────────────────────────────────────────────────────────────
 
@@ -168,197 +68,6 @@ function LogLine({ line }: { line: string }) {
   return <div style={{ color: "var(--text-muted)", marginBottom: 1 }}>{line}</div>;
 }
 
-// ── MetricsInfoModal ──────────────────────────────────────────────────────────
-
-function MetricsInfoModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}
-      onClick={onClose}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "28px 32px", maxWidth: 520, width: "90%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Understanding Your Training Metrics</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 20, lineHeight: 1, padding: 0 }}>×</button>
-        </div>
-
-        <Section title="Loss Curves — Lower is Better">
-          <p>Loss measures how wrong the model is. All three curves should steadily fall and flatten as training progresses.</p>
-          <Metric color="#F97316" name="Box Loss" desc="How accurately the model places bounding boxes around objects. High early on — drops fast." />
-          <Metric color="#22C55E" name="Cls Loss" desc="How confidently the model identifies the correct class (e.g. car vs. truck). Drops steadily with more examples." />
-          <Metric color="#A78BFA" name="Dfl Loss" desc="Distribution Focal Loss — fine-tunes box edge sharpness. Usually the smallest of the three." />
-          <Callout>A healthy run looks like a smooth downward curve that levels off near the end. Spiky or rising loss usually means your learning rate is too high, or your dataset has noisy labels.</Callout>
-        </Section>
-
-        <Section title="Accuracy Metrics — Higher is Better">
-          <Metric color="var(--accent)" name="mAP @ .50" desc="Mean Average Precision at 50% overlap. The main score: 0 = useless, 1 = perfect. Aim for >0.70 for reliable detection." />
-          <Metric color="var(--accent)" name="mAP @ .50:.95" desc="Stricter score averaged across overlap thresholds 50%–95%. More demanding — good models score 0.40–0.60+." />
-          <Metric color="var(--accent)" name="Precision" desc="Of all detections made, what fraction were correct? High precision means few false alarms." />
-          <Metric color="var(--accent)" name="Recall" desc="Of all real objects, what fraction did the model find? High recall means few missed detections." />
-          <Callout>Precision and recall trade off against each other. A good model balances both above 0.80.</Callout>
-        </Section>
-
-        <Section title="Dataset Size Guidelines">
-          <p>YOLO learns by seeing many examples. Small datasets lead to overfitting — the model memorises training images but fails on new ones.</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-            <Row label="< 50 images" value="Too few — expect poor results" color="#EF4444" />
-            <Row label="50–200 images" value="Borderline — use data augmentation" color="#F59E0B" />
-            <Row label="200–500 images" value="Good starting point" color="#22C55E" />
-            <Row label="500+ images" value="Excellent — model can generalise well" color="#22C55E" />
-          </div>
-          <Callout>Aim for at least 50–100 annotated images per class. More diversity beats sheer quantity.</Callout>
-        </Section>
-
-        <Section title="Early Stopping">
-          <p>If the model stops improving for several epochs in a row, training halts automatically. This is normal and saves time — it means the model has converged. You'll see the <span style={{ color: "#F59E0B", fontFamily: "monospace", fontWeight: 700 }}>EARLY STOP</span> badge when this happens.</p>
-        </Section>
-      </div>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-muted)", marginBottom: 10 }}>{title}</div>
-      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>{children}</div>
-    </div>
-  );
-}
-
-function Metric({ color, name, desc }: { color: string; name: string; desc: string }) {
-  return (
-    <div style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
-      <div style={{ width: 10, height: 10, borderRadius: 2, background: color, flexShrink: 0, marginTop: 3 }} />
-      <div><span style={{ fontWeight: 600, color: "var(--text)" }}>{name}</span> — {desc}</div>
-    </div>
-  );
-}
-
-function Callout({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 6, background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", fontSize: 12, color: "var(--text)", lineHeight: 1.5 }}>
-      {children}
-    </div>
-  );
-}
-
-function Row({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-      <span style={{ fontFamily: "monospace", color: "var(--text-muted)" }}>{label}</span>
-      <span style={{ color }}>{value}</span>
-    </div>
-  );
-}
-
-// ── UpdateDatasetModal ────────────────────────────────────────────────────────
-
-function UpdateDatasetModal({
-  runMeta, currentBaseModel, updating, onConfirm, onCancel,
-}: {
-  runMeta: RunMetaResult;
-  currentBaseModel: string;
-  updating: boolean;
-  onConfirm: (newBaseModel: string | null) => void;
-  onCancel: () => void;
-}) {
-  const changes: string[] = [];
-  if (runMeta.newCount     > 0) changes.push(`+${runMeta.newCount} new image${runMeta.newCount > 1 ? "s" : ""}`);
-  if (runMeta.deletedCount > 0) changes.push(`−${runMeta.deletedCount} deleted image${runMeta.deletedCount > 1 ? "s" : ""}`);
-  if (runMeta.modifiedCount > 0) changes.push(`${runMeta.modifiedCount} modified label${runMeta.modifiedCount > 1 ? "s" : ""}`);
-
-  const polyFrom = runMeta.hasPolygons        ? "segmentation" : "detection";
-  const polyTo   = runMeta.currentHasPolygons ? "segmentation" : "detection";
-
-  // Default to the same size variant in the new model family.
-  const newModels  = runMeta.currentHasPolygons ? BASE_MODELS_SEG : BASE_MODELS_DET;
-  const sizeIndex  = (runMeta.currentHasPolygons ? BASE_MODELS_DET : BASE_MODELS_SEG).indexOf(currentBaseModel);
-  const defaultNew = newModels[sizeIndex >= 0 ? sizeIndex : 0];
-  const [selectedModel, setSelectedModel] = useState(defaultNew);
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}
-      onClick={updating ? undefined : onCancel}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "28px 28px 24px", width: 420, display: "flex", flexDirection: "column", gap: 16 }}
-      >
-        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Update Dataset</div>
-
-        <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
-          The following changes have been detected in your asset folders:
-        </div>
-
-        <div style={{ padding: "10px 12px", borderRadius: 6, background: "var(--bg)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 4 }}>
-          {changes.map(c => (
-            <div key={c} style={{ fontSize: 12, fontFamily: "monospace", color: "var(--text)" }}>{c}</div>
-          ))}
-          {changes.length === 0 && runMeta.hasPolygonsChanged && (
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>annotation type changed</div>
-          )}
-        </div>
-
-        {runMeta.hasPolygonsChanged && (
-          <div style={{ padding: "12px", borderRadius: 6, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B", marginBottom: 2 }}>Annotation type changed</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                Dataset was <strong>{polyFrom}</strong>, annotations are now <strong>{polyTo}</strong>.
-                Select the model to use for future runs:
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {newModels.map(m => (
-                <label
-                  key={m}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, cursor: "pointer", background: selectedModel === m ? "rgba(59,130,246,0.12)" : "transparent", border: `1px solid ${selectedModel === m ? "rgba(59,130,246,0.4)" : "transparent"}` }}
-                >
-                  <input
-                    type="radio"
-                    name="newModel"
-                    value={m}
-                    checked={selectedModel === m}
-                    onChange={() => setSelectedModel(m)}
-                    style={{ accentColor: "var(--accent)", cursor: "pointer" }}
-                  />
-                  <span style={{ fontSize: 12, fontFamily: "monospace", color: "var(--text)" }}>{m}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-          The current dataset copy will be replaced. This run's weights are not affected.
-        </div>
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={onCancel}
-            disabled={updating}
-            style={{ flex: 1, padding: "9px", borderRadius: 7, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontSize: 13, cursor: updating ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: updating ? 0.5 : 1 }}
-          >Cancel</button>
-          <button
-            onClick={() => onConfirm(runMeta.hasPolygonsChanged ? selectedModel : null)}
-            disabled={updating}
-            style={{ flex: 1, padding: "9px", borderRadius: 7, border: "none", background: updating ? "var(--border)" : "#F59E0B", color: updating ? "var(--text-muted)" : "#fff", fontSize: 13, fontWeight: 600, cursor: updating ? "not-allowed" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-          >
-            {updating
-              ? <><span style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Copying…</>
-              : "Update Dataset"
-            }
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── RunDetailView ─────────────────────────────────────────────────────────────
 
 interface Props {
@@ -372,22 +81,9 @@ interface Props {
   onStop: () => void;
 }
 
-type RunMetaResult = {
-  found:              boolean;
-  classMap:           string[];
-  imageCount:         number;
-  hasPolygons:        boolean;
-  currentHasPolygons: boolean;
-  hasPolygonsChanged: boolean;
-  newCount:           number;
-  deletedCount:       number;
-  modifiedCount:      number;
-  hasDrift:           boolean;
-};
-
 export default function RunDetailView({ run, progress, onClose, onUpdate, onStartFresh, onResume, onPause, onStop }: Props) {
   const [lines,            setLines]           = useState<string[]>([]);
-  const [runMeta,          setRunMeta]         = useState<RunMetaResult | null>(null);
+  const [runMeta,          setRunMeta]         = useState<DatasetUpdateMeta | null>(null);
   const [showMetricsInfo,  setShowMetricsInfo] = useState(false);
   const [showUpdateModal,  setShowUpdateModal] = useState(false);
   const [updating,         setUpdating]        = useState(false);
@@ -493,15 +189,7 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
         </>}
       />
 
-      {/* Config strip */}
-      <div style={{ padding: "10px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 28, alignItems: "center", flexShrink: 0, flexWrap: "wrap", background: "var(--surface)" }}>
-        <ConfigStatField label="Model" value={run.baseModel} width={72} />
-        <ConfigNumField label="Epochs" value={run.epochs} min={1} max={10000} editable={editable} onChange={v => onUpdate({ epochs: v })} />
-        <ConfigNumField label="Batch" value={run.batchSize} min={-1} max={1024} editable={editable} format={v => v === -1 ? "auto" : String(v)} onChange={v => onUpdate({ batchSize: v })} />
-        <ConfigNumField label="Img" value={run.imgsz} min={32} max={1280} editable={editable} format={v => `${v}px`} onChange={v => onUpdate({ imgsz: v })} />
-        <ConfigSelectField label="Device" value={run.device} options={DEVICES} editable={editable} onChange={v => onUpdate({ device: v })} />
-        <ConfigStatField label="Classes" value={String(run.classMap.length)} width={58} />
-      </div>
+      <RunConfigStrip run={run} editable={editable} onUpdate={onUpdate} />
 
       {/* Dataset drift banner */}
       {runMeta?.found && runMeta.hasDrift && (() => {
@@ -736,10 +424,10 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
         </div>
       </div>
 
-      {showMetricsInfo && <MetricsInfoModal onClose={() => setShowMetricsInfo(false)} />}
+      {showMetricsInfo && <TrainingMetricsHelpModal onClose={() => setShowMetricsInfo(false)} />}
 
       {showUpdateModal && runMeta && (
-        <UpdateDatasetModal
+        <DatasetUpdateModal
           runMeta={runMeta}
           currentBaseModel={run.baseModel}
           updating={updating}
@@ -753,7 +441,7 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
                 onUpdate({ baseModel: newBaseModel, status: "idle" });
               }
               const fresh = await getRPC().request.readRunMeta({ outputPath: run.outputPath });
-              setRunMeta(fresh as RunMetaResult);
+              setRunMeta(fresh as DatasetUpdateMeta);
             } catch (err) {
               console.error("Failed to update dataset:", err);
             } finally {
@@ -767,4 +455,3 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
     </div>
   );
 }
-
