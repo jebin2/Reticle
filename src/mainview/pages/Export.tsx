@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Package, GitMerge, Smartphone, Monitor, Cpu, Terminal, X, Loader, CheckCircle, AlertCircle, Download } from "lucide-react";
 import { getRPC, getBridgeUrl, getBridgeConfig } from "../lib/rpc";
 import { TrainingRun } from "../lib/types";
@@ -28,13 +28,6 @@ const ALL_FORMATS: FormatDef[] = [
   { id: "coreml",   label: "CoreML",               desc: "Optimized for Apple Neural Engine (ANE). macOS/iOS only.",                                                    Icon: Monitor    },
   { id: "openvino", label: "OpenVINO",            desc: "Intel hardware acceleration. Optimized for Intel CPUs and GPUs.", note: "First export installs deps (~30 MB)", Icon: Cpu        },
 ];
-
-// Filter out CoreML on Windows (not supported) - computed once at module level after RPC init
-let _formats: FormatDef[] | null = null;
-function getFormats(isWindows: boolean): FormatDef[] {
-  if (!_formats) _formats = ALL_FORMATS.filter(f => f.id !== "coreml" || !isWindows);
-  return _formats;
-}
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -72,6 +65,7 @@ export default function Export({ runs }: Props) {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(doneRuns[0]?.id ?? null);
   const [dlModal,       setDlModal]       = useState<DownloadModal>(MODAL_CLOSED);
   const [isWindows,     setIsWindows]     = useState(false);
+  const formats = useMemo(() => ALL_FORMATS.filter(f => f.id !== "coreml" || !isWindows), [isWindows]);
 
   useEffect(() => {
     if (!selectedRunId && doneRuns.length > 0) setSelectedRunId(doneRuns[0].id);
@@ -188,12 +182,12 @@ export default function Export({ runs }: Props) {
           {/* ── Section 1: Format Export ── */}
           <SectionHeading label="Model Format Export" />
           <div style={{ marginBottom: 40, display: "flex", flexDirection: "column", gap: 0 }}>
-            {getFormats(isWindows).map((fmt, i) => (
+            {formats.map((fmt, i) => (
               <FormatRow
                 key={fmt.id}
                 fmt={fmt}
                 disabled={!selectedRun || (dlModal.open && dlModal.formatId === fmt.id)}
-                isLast={i === getFormats(isWindows).length - 1}
+                isLast={i === formats.length - 1}
                 onDownload={() => handleDownload({ id: fmt.id, label: fmt.label, kind: "format", outputPath: selectedRun!.outputPath, format: fmt.id, runName: selectedRun!.name })}
               />
             ))}
