@@ -1,12 +1,11 @@
 import { useEffect, useRef } from "react";
-import type { ReactNode, RefObject } from "react";
+import type { ReactNode } from "react";
 
 interface Props {
   lines: string[];
   renderLine: (line: string, index: number) => ReactNode;
   emptyText?: string;
   height?: number | string;
-  endRef?: RefObject<HTMLDivElement>;
 }
 
 export default function LogPanel({
@@ -14,16 +13,27 @@ export default function LogPanel({
   renderLine,
   emptyText = "No log entries yet.",
   height = "100%",
-  endRef,
 }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const bottomRef    = useRef<HTMLDivElement>(null);
+  const isAtBottom   = useRef(true);
+
+  const handleScroll = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    isAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [lines]);
+    if (isAtBottom.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [lines.length]);
 
   return (
     <div
+      ref={containerRef}
+      onScroll={handleScroll}
       style={{
         height,
         overflowY: "auto",
@@ -43,7 +53,6 @@ export default function LogPanel({
         : lines.map(renderLine)
       }
       <div ref={bottomRef} />
-      {endRef && <div ref={endRef} />}
     </div>
   );
 }

@@ -91,7 +91,6 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
     lines,
     runMeta,
     setRunMeta,
-    logEndRef,
     peakRamMB,
     peakGpuMB,
     datasetSize,
@@ -303,7 +302,6 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
               <LogPanel
                 lines={lines}
                 renderLine={(line, i) => <LogLine key={i} line={line} />}
-                endRef={logEndRef}
               />
             </div>
           </div>

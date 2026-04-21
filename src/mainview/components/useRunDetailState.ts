@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getRPC } from "../lib/rpc";
 import { useLogPoller } from "../lib/useLogPoller";
 import { parseLog, type LogProgress } from "../lib/trainLog";
@@ -12,17 +12,12 @@ type CurveCoords = { x: number; y: number };
 export function useRunDetailState(run: TrainingRun, progress?: LogProgress) {
   const [lines, setLines] = useState<string[]>([]);
   const [runMeta, setRunMeta] = useState<DatasetUpdateMeta | null>(null);
-  const logEndRef = useRef<HTMLDivElement>(null);
 
   useLogPoller(
     true,
     () => getRPC().request.readTrainingLog({ outputPath: run.outputPath }).then(r => r.lines),
     setLines,
   );
-
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [lines.length]);
 
   useEffect(() => {
     getRPC().request.readRunMeta({ outputPath: run.outputPath }).then(setRunMeta).catch(() => {});
@@ -49,7 +44,6 @@ export function useRunDetailState(run: TrainingRun, progress?: LogProgress) {
     lines,
     runMeta,
     setRunMeta,
-    logEndRef,
     peakRamMB,
     peakGpuMB,
     done,
