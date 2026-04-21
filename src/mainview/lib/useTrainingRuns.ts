@@ -65,6 +65,8 @@ export function useTrainingRuns(
   }, [activeRunIds]);
 
   async function startRun(run: TrainingRun, fresh: boolean) {
+    // Guard: prevent starting if already installing or training.
+    if (run.status === "installing" || run.status === "training") return;
     updateRun(run.id, { status: "installing", mAP: undefined, updatedAt: "just now" });
     if (fresh) setRunProgress(prev => { const next = { ...prev }; delete next[run.id]; return next; });
     const runAssets = assets.filter(a => run.assetIds.includes(a.id));

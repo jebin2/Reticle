@@ -87,6 +87,10 @@ export const trainingHandlers = {
 		baseModel: string; epochs: number; batchSize: number; imgsz: number;
 		device: string; outputPath: string; fresh: boolean;
 	}) => {
+		// Guard: prevent multiple concurrent training runs for the same ID.
+		if (runningProcesses.has(config.id)) {
+			return { started: false };
+		}
 		await mkdir(exp(config.outputPath), { recursive: true });
 		if (config.fresh) {
 			await unlink(checkpointPath(exp(config.outputPath))).catch(() => {});
