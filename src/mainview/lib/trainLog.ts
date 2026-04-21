@@ -29,10 +29,10 @@ export function parseLog(lines: string[]): {
     const ev = parseLogLine(line);
     if (!ev) continue;
     if (ev.type === "dataset_copy_start") {
-      copyProgress = { done: 0, total: ev.total as number };
+      copyProgress = { done: 0, total: ev.total };
     }
     if (ev.type === "dataset_copy_progress") {
-      copyProgress = { done: ev.done as number, total: ev.total as number };
+      copyProgress = { done: ev.done, total: ev.total };
     }
     if (ev.type === "progress") {
       if (ev.earlyStop) earlyStopTriggered = true;
@@ -50,9 +50,9 @@ export function parseLog(lines: string[]): {
         earlyStop: !!ev.earlyStop,
       };
     }
-    if (ev.type === "dataset") datasetSize = ev.imageCount as number;
-    if (ev.type === "done")    done    = { mAP50: ev.mAP50 as number, mAP50_95: ev.mAP50_95 as number, weightsPath: ev.weightsPath as string };
-    if (ev.type === "error")   error   = { message: ev.message as string };
+    if (ev.type === "dataset") datasetSize = ev.imageCount;
+    if (ev.type === "done")    done    = { mAP50: ev.mAP50 ?? 0, mAP50_95: ev.mAP50_95 ?? 0, weightsPath: ev.weightsPath ?? "" };
+    if (ev.type === "error")   error   = { message: ev.message };
   }
 
   return { progress, done, error, datasetSize, earlyStopTriggered, copyProgress };

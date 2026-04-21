@@ -3,7 +3,7 @@ import { join, extname, basename, dirname } from "path";
 import { homedir, tmpdir } from "os";
 import {
 	EXPORT_SCRIPT, VENV_PYTHON,
-	IS_WIN, runProcess, modelPath as getModelPath,
+	IS_WIN, runProcess, runningProcesses, modelPath as getModelPath,
 	buildCLIArtifact, coalescePipProgress, parseLastJsonLine, safeName,
 } from "../util";
 import { exp, readLogFile } from "../common";
@@ -110,7 +110,7 @@ export const exportHandlers = {
 				return;
 			}
 			if (data.error) {
-				await log(JSON.stringify({ type: "error", message: data.error }));
+				await log(JSON.stringify({ type: "error", message: data.error as string }));
 				return;
 			}
 			const exportedPath = data.exportedPath as string;
