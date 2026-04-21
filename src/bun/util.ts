@@ -345,6 +345,19 @@ export async function prepareEnvironment(
 		await runPip(["ultralytics", "psutil"], "pip install ultralytics psutil");
 		await Bun.write(VENV_READY_MARKER, "ready");
 		await log("[setup] Environment ready.");
+	} else {
+		// Ensure psutil is present — may be missing from older installations that
+		// pre-date it being added to the install list.
+		const psutilOk = await new Promise<boolean>(resolve => {
+			try {
+				const p = Bun.spawn([VENV_PYTHON, "-c", "import psutil"], { stdout: "ignore", stderr: "ignore" });
+				p.exited.then(code => resolve(code === 0)).catch(() => resolve(false));
+			} catch { resolve(false); }
+		});
+		if (!psutilOk) {
+			await log("[setup] Installing psutil...");
+			await runPip(["psutil"], "pip install psutil");
+		}
 	}
 
 	return VENV_PYTHON;
