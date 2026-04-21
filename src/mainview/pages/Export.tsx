@@ -7,6 +7,7 @@ import Modal from "../components/Modal";
 import CustomSelect from "../components/CustomSelect";
 import LogPanel from "../components/LogPanel";
 import { parseLogLine } from "../lib/logParser";
+import { downloadBlobFile } from "../lib/downloadUtils";
 import { iconTile, mutedText, outlineBtn, sectionHeading, surfaceCard } from "../lib/styleUtils";
 
 // ── format definitions ────────────────────────────────────────────────────────
@@ -96,18 +97,7 @@ export default function Export({ runs }: Props) {
             if (ev.type === "done") {
               active = false;
               try {
-                const url      = getBridgeUrl(ev.filePath);
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-                const blob    = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                const a       = document.createElement("a");
-                a.href     = blobUrl;
-                a.download = ev.filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                await downloadBlobFile(getBridgeUrl(ev.filePath), ev.filename);
                 setDlModal(prev => ({ ...prev, status: "done", filename: ev.filename }));
               } catch (e) {
                 setDlModal(prev => ({ ...prev, status: "error", error: String(e) }));
@@ -143,18 +133,7 @@ export default function Export({ runs }: Props) {
         if (res.error) {
           setDlModal(prev => ({ ...prev, status: "error", error: res.error! }));
         } else {
-          const url      = getBridgeUrl(res.filePath);
-          const response = await fetch(url);
-          if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-          const blob    = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          const a       = document.createElement("a");
-          a.href     = blobUrl;
-          a.download = res.filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+          await downloadBlobFile(getBridgeUrl(res.filePath), res.filename);
           setDlModal(prev => ({ ...prev, status: "done", filename: res.filename }));
         }
       } catch (e) {
