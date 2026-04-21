@@ -1,4 +1,4 @@
-# Reticle UI Notes
+# Nab UI Notes
 > Things to keep in mind when implementing from the Stitch mock.
 
 ---
@@ -21,7 +21,7 @@
 ### Dashboard
 - **Remove bottom stats bar** (GPU UTIL / ACTIVE SERVERS / LATENCY) — not relevant for a desktop app
 - **Remove top nav from Dashboard** — use left sidebar only, consistent with all other screens
-- **"KINETIC LABORATORY"** sub-brand under logo — remove, replace with just "Reticle"
+- **"KINETIC LABORATORY"** sub-brand under logo — remove, replace with just "Nab"
 - Replace generic placeholder copy everywhere
 
 ### Export Screen
@@ -63,7 +63,7 @@
 **Left sidebar only.** No top nav bar. Active screen highlighted in sidebar.
 
 ```
-[ Reticle ]
+[ Nab ]
 ─────────────
   Projects       ← default landing
   Annotate

@@ -40,7 +40,7 @@ CHECKPOINT_FILE = WEIGHTS_SUBDIR / "last.pt"
 MODEL_FILE      = WEIGHTS_SUBDIR / "best.pt"
 
 # Environment variable set when retrying on CPU (configurable).
-CPU_FALLBACK_ENV = os.environ.get("RETICLE_CPU_FALLBACK_ENV", "RETICLE_CPU_FALLBACK")
+CPU_FALLBACK_ENV = os.environ.get("NAB_CPU_FALLBACK_ENV", "NAB_CPU_FALLBACK")
 
 
 def load_model(base_model: str, checkpoint: Path, resuming: bool, models_dir: Path):

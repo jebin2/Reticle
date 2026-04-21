@@ -1,4 +1,4 @@
-# Design System Strategy: Reticle
+# Design System Strategy: Nab
 
 ## 1. Overview & Creative North Star
 **Creative North Star: The Kinetic Laboratory**
