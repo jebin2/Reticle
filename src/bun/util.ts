@@ -50,6 +50,11 @@ export const runningProcesses = new Map<string, ReturnType<typeof Bun.spawn>>();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+export function parseLastJsonLine(stdout: string): Record<string, unknown> | null {
+	const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
+	try { return JSON.parse(line); } catch { return null; }
+}
+
 // Strip ANSI/CSI escape sequences and collapse \r-overwritten lines.
 export function cleanLine(raw: string): string {
 	const segments = raw.split("\r");
@@ -378,15 +383,13 @@ export async function runInference(
 	);
 
 	const inferenceMs = Date.now() - t0;
-	const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
-	try {
-		const data = JSON.parse(line);
-		if (data.error) return { detections: [], inferenceMs, error: data.error };
-		return { detections: data.detections ?? [], inferenceMs, error: null };
-	} catch {
+	const data = parseLastJsonLine(stdout);
+	if (!data) {
 		if (stderr.trim()) console.error("[infer] stderr:\n", stderr.trim());
 		if (stdout.trim()) console.error("[infer] stdout:\n", stdout.trim());
 		const hint = stderr.trim().split("\n").filter(l => l.trim()).pop() ?? "";
 		return { detections: [], inferenceMs, error: `Inference failed.${hint ? ` ${hint}` : ""}` };
 	}
+	if (data.error) return { detections: [], inferenceMs, error: data.error as string };
+	return { detections: (data.detections ?? []) as Detection[], inferenceMs, error: null };
 }

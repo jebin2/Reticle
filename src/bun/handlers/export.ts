@@ -4,7 +4,7 @@ import { homedir, tmpdir } from "os";
 import {
 	CLI_ENTRY, UTIL_ENTRY, INFER_SCRIPT, LOGGER_SCRIPT, YOLO_UTILS_SCRIPT, EXPORT_SCRIPT, VENV_PYTHON,
 	runningProcesses, runProcess, modelPath as getModelPath, streamProcessOutput,
-	coalescePipProgress,
+	coalescePipProgress, parseLastJsonLine,
 } from "../util";
 import { exp, readLogFile } from "../common";
 
@@ -56,16 +56,14 @@ export const exportHandlers = {
 			stdinData: JSON.stringify({ modelPath, format }),
 			stderrHandler: async () => {},
 		});
-		const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
-		try {
-			const data = JSON.parse(line);
-			if (data.error) return { exportedPath: "", fileSize: 0, error: data.error };
-			const fileSize = (await Bun.file(data.exportedPath).size) ?? 0;
-			return { exportedPath: data.exportedPath, fileSize, error: null };
-		} catch {
+		const data = parseLastJsonLine(stdout);
+		if (!data) {
 			const hint = stderr.trim().split("\n").filter(Boolean).pop() ?? "";
 			return { exportedPath: "", fileSize: 0, error: `Export failed.${hint ? ` ${hint}` : ""}` };
 		}
+		if (data.error) return { exportedPath: "", fileSize: 0, error: data.error as string };
+		const fileSize = (await Bun.file(data.exportedPath as string).size) ?? 0;
+		return { exportedPath: data.exportedPath as string, fileSize, error: null };
 	},
 
 	buildAndDownloadCLI: async ({ outputPath, runName, runId }: {
@@ -138,19 +136,16 @@ export const exportHandlers = {
 				runId,
 			});
 
-			const line = stdout.trim().split("\n").filter(Boolean).pop() ?? "";
-			let exportedPath: string;
-			try {
-				const data = JSON.parse(line);
-				if (data.error) {
-					await log(JSON.stringify({ type: "error", message: data.error }));
-					return;
-				}
-				exportedPath = data.exportedPath;
-			} catch {
+			const data = parseLastJsonLine(stdout);
+			if (!data) {
 				await log(JSON.stringify({ type: "error", message: "Export failed: unexpected output from export script." }));
 				return;
 			}
+			if (data.error) {
+				await log(JSON.stringify({ type: "error", message: data.error }));
+				return;
+			}
+			const exportedPath = data.exportedPath as string;
 
 			const ext      = FORMAT_EXT[format] ?? extname(exportedPath);
 			const destName = ext ? `${safeName}${ext}` : `${safeName}_${format}`;
