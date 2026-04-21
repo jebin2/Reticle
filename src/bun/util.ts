@@ -379,7 +379,9 @@ export async function buildCLIArtifact(modelPath: string, outBinary: string, run
 		await copyFile(LOGGER_SCRIPT,    join(buildDir, "logger.py"));
 		await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
 
-		const bunExe = process.execPath;
+		// On Windows bun is not in PATH, so use the bundled executable directly.
+		// On Linux/macOS the system bun (via PATH) supports --compile correctly.
+		const bunExe = IS_WIN ? process.execPath : "bun";
 		const proc = Bun.spawn(
 			[bunExe, "build", "--compile", "--minify", join(buildDir, "cli.ts"), "--outfile", outBinary],
 			{ stdout: "pipe", stderr: "pipe" },
