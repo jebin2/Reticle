@@ -21,7 +21,7 @@ async function buildCLIArtifact(modelPath: string, outBinary: string, runId: str
 		await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
 
 		const proc = Bun.spawn(
-			[process.execPath, "build", "--compile", "--minify", "--bytecode", join(buildDir, "cli.ts"), "--outfile", outBinary],
+			["bun", "build", "--compile", "--minify", join(buildDir, "cli.ts"), "--outfile", outBinary],
 			{ stdout: "pipe", stderr: "pipe" },
 		);
 		runningProcesses.set(runId, proc);
@@ -30,7 +30,7 @@ async function buildCLIArtifact(modelPath: string, outBinary: string, runId: str
 				stderrHandler: async line => { stderr += line + "\n"; },
 			});
 			const exitCode = await proc.exited;
-			if (exitCode !== 0) return stderr.trim().split("\n").pop() ?? "Unknown build failure";
+			if (exitCode !== 0) return stderr.trim() || "Unknown build failure";
 			return null;
 		} finally {
 			runningProcesses.delete(runId);
