@@ -85,9 +85,10 @@ interface Props {
 }
 
 export default function RunDetailView({ run, progress, onClose, onUpdate, onStartFresh, onResume, onPause, onStop }: Props) {
-  const [showMetricsInfo,  setShowMetricsInfo] = useState(false);
-  const [showUpdateModal,  setShowUpdateModal] = useState(false);
-  const [updating,         setUpdating]        = useState(false);
+  const [showMetricsInfo,   setShowMetricsInfo]  = useState(false);
+  const [showUpdateModal,   setShowUpdateModal]  = useState(false);
+  const [updating,          setUpdating]         = useState(false);
+  const [pendingStartFresh, setPendingStartFresh] = useState(false);
   const statusColor  = RUN_STATUS_COLORS[run.status];
   const {
     lines,
@@ -125,7 +126,14 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
             const mismatch    = runMeta != null && (runMeta.currentHasPolygons !== isSeg);
             const label       = run.status === "idle" ? "Start" : run.status === "done" ? "Start Again" : "Retry";
             return <>
-              <HeaderBtn onClick={onStartFresh} bg="var(--accent)"><Play size={13} fill="#fff" />{label}</HeaderBtn>
+              <HeaderBtn onClick={() => {
+                if (runMeta?.found && runMeta.hasDrift) {
+                  setPendingStartFresh(true);
+                  setShowUpdateModal(true);
+                } else {
+                  onStartFresh();
+                }
+              }} bg="var(--accent)"><Play size={13} fill="#fff" />{label}</HeaderBtn>
               {mismatch && (
                 <span style={{ fontSize: 11, color: "#F59E0B", padding: "4px 10px", borderRadius: 5, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.08)", lineHeight: 1.4 }}>
                   {runMeta!.currentHasPolygons ? "Annotations now have polygons — consider a seg model" : "Annotations are bbox-only — consider a det model"}
@@ -407,20 +415,26 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
             try {
               await getRPC().request.updateDataset({ outputPath: run.outputPath });
               if (newBaseModel) {
-                // Model type changed — reset to idle so the user must Start Fresh
-                // (the old checkpoint is incompatible with the new model).
                 onUpdate({ baseModel: newBaseModel, status: "idle" });
               }
               const fresh = await getRPC().request.readRunMeta({ outputPath: run.outputPath });
               setRunMeta(fresh as DatasetUpdateMeta);
+              if (pendingStartFresh) {
+                onStartFresh();
+              }
             } catch (err) {
               console.error("Failed to update dataset:", err);
             } finally {
               setUpdating(false);
               setShowUpdateModal(false);
+              setPendingStartFresh(false);
             }
           }}
-          onCancel={() => setShowUpdateModal(false)}
+          startOnUpdate={pendingStartFresh}
+          onCancel={() => {
+            setShowUpdateModal(false);
+            setPendingStartFresh(false);
+          }}
         />
       )}
     </div>

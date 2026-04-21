@@ -21,9 +21,11 @@ interface Props {
   updating: boolean;
   onConfirm: (newBaseModel: string | null) => void;
   onCancel: () => void;
+  /** When true, the confirm button reads "Update & Start" instead of "Update Dataset" */
+  startOnUpdate?: boolean;
 }
 
-export default function DatasetUpdateModal({ runMeta, currentBaseModel, updating, onConfirm, onCancel }: Props) {
+export default function DatasetUpdateModal({ runMeta, currentBaseModel, updating, onConfirm, onCancel, startOnUpdate }: Props) {
   const changes: string[] = [];
   if (runMeta.newCount > 0) changes.push(`+${runMeta.newCount} new image${runMeta.newCount > 1 ? "s" : ""}`);
   if (runMeta.deletedCount > 0) changes.push(`-${runMeta.deletedCount} deleted image${runMeta.deletedCount > 1 ? "s" : ""}`);
@@ -38,7 +40,9 @@ export default function DatasetUpdateModal({ runMeta, currentBaseModel, updating
   return (
     <Modal width={420} zIndex={1000} onClose={updating ? () => {} : onCancel}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Update Dataset</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>
+          {startOnUpdate ? "Annotations Changed — Review Before Starting" : "Update Dataset"}
+        </div>
 
         <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
           The following changes have been detected in your asset folders:
@@ -102,7 +106,7 @@ export default function DatasetUpdateModal({ runMeta, currentBaseModel, updating
           >
             {updating
               ? <><span style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} /> Copying...</>
-              : "Update Dataset"}
+              : startOnUpdate ? "Update & Start" : "Update Dataset"}
           </button>
         </div>
       </div>
