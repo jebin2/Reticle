@@ -2,6 +2,13 @@
 
 Train custom object detection models — no code, no terminal.
 
+## Prerequisites
+
+### Windows
+
+- [7-Zip](https://www.7-zip.org/) — used to extract the installer archive
+- [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) — required for PyTorch (torch/lib/c10.dll)
+
 ## Quickstart
 
 1. **Assets** — Create a dataset, drag in your images
