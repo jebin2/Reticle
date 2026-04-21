@@ -1,9 +1,6 @@
-import { appendFile, mkdir, rm, unlink, writeFile } from "fs/promises";
+import { appendFile, copyFile, mkdir, mkdtemp, rm, unlink, writeFile } from "fs/promises";
 import { join } from "path";
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -351,6 +348,42 @@ export async function prepareEnvironment(
 	}
 
 	return VENV_PYTHON;
+}
+
+// ── buildCLIArtifact ──────────────────────────────────────────────────────────
+// Compiles a self-contained CLI binary (bun build --compile) that bundles the
+// model weights and inference scripts. Returns null on success, error string on failure.
+
+export async function buildCLIArtifact(modelPath: string, outBinary: string, runId: string): Promise<string | null> {
+	const buildDir = await mkdtemp(join(tmpdir(), "nab-cli-"));
+	let stderr = "";
+
+	try {
+		await copyFile(CLI_ENTRY,        join(buildDir, "cli.ts"));
+		await copyFile(UTIL_ENTRY,       join(buildDir, "util.ts"));
+		await copyFile(modelPath,        join(buildDir, "model.pt"));
+		await copyFile(INFER_SCRIPT,     join(buildDir, "infer.py"));
+		await copyFile(LOGGER_SCRIPT,    join(buildDir, "logger.py"));
+		await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
+
+		const proc = Bun.spawn(
+			["bun", "build", "--compile", "--minify", join(buildDir, "cli.ts"), "--outfile", outBinary],
+			{ stdout: "pipe", stderr: "pipe" },
+		);
+		runningProcesses.set(runId, proc);
+		try {
+			await streamProcessOutput(proc, {
+				stderrHandler: async line => { stderr += line + "\n"; },
+			});
+			const exitCode = await proc.exited;
+			if (exitCode !== 0) return stderr.trim() || "Unknown build failure";
+			return null;
+		} finally {
+			runningProcesses.delete(runId);
+		}
+	} finally {
+		await rm(buildDir, { recursive: true, force: true }).catch(() => {});
+	}
 }
 
 // ── runInference ──────────────────────────────────────────────────────────────

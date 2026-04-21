@@ -4,8 +4,7 @@ import {
 	TRAIN_SCRIPT, MODELS_DIR, runningProcesses,
 	prepareEnvironment, streamProcessOutput, checkpointPath, modelPath as getModelPath,
 } from "../util";
-import { exp, IMAGE_EXTS, detectHasPolygons, listAnnotatedImages, readLogFile, type AnnotatedImageEntry } from "../common";
-import { parseSegmentationLine, isTruePolygon } from "../polygon";
+import { exp, IMAGE_EXTS, checkFileHasPolygon, detectHasPolygons, listAnnotatedImages, readLogFile, type AnnotatedImageEntry } from "../common";
 
 // ── run-meta.json schema ──────────────────────────────────────────────────────
 
@@ -70,14 +69,7 @@ async function copyDatasetFiles(
 		await copyFile(entry.imgPath,   join(imgDir, destName));
 		await copyFile(entry.labelPath, join(lblDir, `${destStem}.txt`));
 
-		// Detect polygons inline while the label file is already in scope.
-		if (!hasPolygons) {
-			const text = await Bun.file(entry.labelPath).text();
-			for (const line of text.trim().split("\n")) {
-				const pts = parseSegmentationLine(line);
-				if (pts && isTruePolygon(pts)) { hasPolygons = true; break; }
-			}
-		}
+		if (!hasPolygons) hasPolygons = await checkFileHasPolygon(entry.labelPath);
 
 		if ((i + 1) % REPORT_EVERY === 0 || i === allEntries.length - 1) {
 			await appendFile(logPath, JSON.stringify({ type: "dataset_copy_progress", done: i + 1, total }) + "\n");

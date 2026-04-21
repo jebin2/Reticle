@@ -28,6 +28,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import yaml
 from pathlib import Path
 from logger import emit
@@ -84,13 +85,8 @@ def train_once(model, data_yaml: Path, epochs: int, batch_size: int, imgsz: int,
 
 
 def retry_on_cpu(config: dict):
-    cpu_config = dict(config)
-    cpu_config["device"] = "cpu"
-    cpu_config["resumeFromCheckpoint"] = False
-
-    env = dict(os.environ)
-    env["CUDA_VISIBLE_DEVICES"] = "-1"
-    env[CPU_FALLBACK_ENV] = "1"
+    cpu_config = {**config, "device": "cpu", "resumeFromCheckpoint": False}
+    env        = {**os.environ, "CUDA_VISIBLE_DEVICES": "-1", CPU_FALLBACK_ENV: "1"}
 
     proc = subprocess.Popen(
         [sys.executable, __file__],
@@ -103,19 +99,27 @@ def retry_on_cpu(config: dict):
     proc.stdin.write(json.dumps(cpu_config))
     proc.stdin.close()
 
+    # Drain stderr concurrently to avoid deadlock when the stderr pipe buffer
+    # fills while we're blocked reading stdout.
+    stderr_lines: list[str] = []
+    def _collect_stderr():
+        for line in proc.stderr:
+            stderr_lines.append(line.rstrip())
+    t = threading.Thread(target=_collect_stderr, daemon=True)
+    t.start()
+
     for line in proc.stdout:
         sys.stdout.write(line)
         sys.stdout.flush()
 
-    stderr_output = proc.stderr.read()
+    t.join()
     proc.wait()
 
-    if stderr_output:
-        for line in stderr_output.splitlines():
-            emit({"type": "stderr", "text": f"[train] {line}"})
+    for line in stderr_lines:
+        emit({"type": "stderr", "text": f"[train] {line}"})
 
     if proc.returncode != 0:
-        raise RuntimeError((stderr_output or "CPU fallback failed").strip())
+        raise RuntimeError(stderr_lines[-1] if stderr_lines else "CPU fallback failed")
 
 
 def task_for_model(base_model: str) -> str:

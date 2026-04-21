@@ -4,9 +4,10 @@ Nab model export script — YOLO26 via Ultralytics.
 Reads JSON from stdin:
   { "modelPath": "/abs/path/best.pt", "format": "onnx" }
 
-Writes a single JSON line to stdout:
+Writes a single JSON line to stdout on success:
   { "exportedPath": "/abs/path/best.onnx", "error": null }
-  { "exportedPath": "",                     "error": "message" }
+On failure:
+  { "error": "message" }
 
 Supported formats: onnx, tflite, coreml, openvino
 (PyTorch / .pt is handled directly in the Bun backend — no export needed.)
@@ -54,7 +55,7 @@ def main():
     try:
         config = json.load(sys.stdin)
     except json.JSONDecodeError as e:
-        emit({"exportedPath": "", "error": f"Invalid config JSON: {e}"})
+        emit({"error": f"Invalid config JSON: {e}"})
         sys.exit(1)
 
     model_path = config["modelPath"]
@@ -63,7 +64,7 @@ def main():
     try:
         ensure_deps(fmt)
     except Exception as e:
-        emit({"exportedPath": "", "error": f"Failed to install dependencies: {e}"})
+        emit({"error": f"Failed to install dependencies: {e}"})
         sys.exit(1)
 
     try:
@@ -71,14 +72,14 @@ def main():
         silence_ultralytics()
         model = YOLO(model_path)
     except Exception as e:
-        emit({"exportedPath": "", "error": f"Failed to load model: {e}"})
+        emit({"error": f"Failed to load model: {e}"})
         sys.exit(1)
 
     try:
         print(f"[export] Exporting model to {fmt}...", file=sys.stderr, flush=True)
         exported_path = model.export(format=fmt)
     except Exception as e:
-        emit({"exportedPath": "", "error": f"Export failed: {e}"})
+        emit({"error": f"Export failed: {e}"})
         sys.exit(1)
 
     emit({"exportedPath": str(exported_path), "error": None})

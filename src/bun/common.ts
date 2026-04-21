@@ -31,6 +31,20 @@ export async function readLogFile(logPath: string): Promise<string[]> {
 }
 
 /**
+ * Return true when a single label .txt file contains at least one true polygon.
+ * Exported so callers that already have the file path can skip the directory scan.
+ */
+export async function checkFileHasPolygon(labelPath: string): Promise<boolean> {
+	let text: string;
+	try { text = await Bun.file(labelPath).text(); } catch { return false; }
+	for (const line of text.trim().split("\n")) {
+		const pts = parseSegmentationLine(line);
+		if (pts && isTruePolygon(pts)) return true;
+	}
+	return false;
+}
+
+/**
  * Scan an asset's label files and return whether any annotation is a true
  * polygon (not just a bbox converted to an axis-aligned 4-corner rectangle).
  */
@@ -40,12 +54,7 @@ export async function detectHasPolygons(storagePath: string): Promise<boolean> {
 	try { files = await readdir(labelsDir); } catch { return false; }
 	for (const f of files) {
 		if (!f.endsWith(".txt")) continue;
-		let text: string;
-		try { text = await Bun.file(join(labelsDir, f)).text(); } catch { continue; }
-		for (const line of text.trim().split("\n")) {
-			const pts = parseSegmentationLine(line);
-			if (pts && isTruePolygon(pts)) return true;
-		}
+		if (await checkFileHasPolygon(join(labelsDir, f))) return true;
 	}
 	return false;
 }

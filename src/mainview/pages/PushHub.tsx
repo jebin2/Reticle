@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Cloud } from "lucide-react";
 import { type TrainingRun } from "../lib/types";
 import { getRPC } from "../lib/rpc";

@@ -8,7 +8,32 @@
  * non-JSON stderr text.
  */
 
-export type LogEvent = Record<string, unknown> & { type: string };
+export type LogEvent =
+  | {
+      type: "progress";
+      // training metrics
+      epoch?: number; epochs?: number;
+      loss?: number; lossBox?: number; lossCls?: number; lossDfl?: number;
+      mAP?: number; precision?: number; recall?: number;
+      ramMB?: number; gpuMB?: number;
+      earlyStop?: boolean;
+      // hub push — pip install progress line
+      text?: string;
+    }
+  | {
+      type: "done";
+      // training
+      mAP50?: number; mAP50_95?: number; weightsPath?: string;
+      // hub push
+      url?: string;
+      // export
+      filePath?: string; filename?: string;
+    }
+  | { type: "error";   message: string }
+  | { type: "stderr";  text: string }
+  | { type: "dataset"; imageCount: number }
+  | { type: "dataset_copy_start";    total: number }
+  | { type: "dataset_copy_progress"; done: number; total: number };
 
 /**
  * Parse a single log line. Returns the parsed event when the line is valid

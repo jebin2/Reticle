@@ -1,45 +1,13 @@
-import { appendFile, mkdir, copyFile, cp, rm, mkdtemp, stat } from "fs/promises";
+import { appendFile, mkdir, copyFile, cp, rm, stat } from "fs/promises";
 import { join, extname, basename, dirname } from "path";
 import { homedir, tmpdir } from "os";
 import {
-	CLI_ENTRY, UTIL_ENTRY, INFER_SCRIPT, LOGGER_SCRIPT, YOLO_UTILS_SCRIPT, EXPORT_SCRIPT, VENV_PYTHON,
-	IS_WIN, runningProcesses, runProcess, modelPath as getModelPath, streamProcessOutput,
-	coalescePipProgress, parseLastJsonLine, safeName,
+	EXPORT_SCRIPT, VENV_PYTHON,
+	IS_WIN, runProcess, modelPath as getModelPath,
+	buildCLIArtifact, coalescePipProgress, parseLastJsonLine, safeName,
 } from "../util";
 import { exp, readLogFile } from "../common";
 
-
-async function buildCLIArtifact(modelPath: string, outBinary: string, runId: string): Promise<string | null> {
-	const buildDir = await mkdtemp(join(tmpdir(), "nab-cli-"));
-	let stderr = "";
-
-	try {
-		await copyFile(CLI_ENTRY, join(buildDir, "cli.ts"));
-		await copyFile(UTIL_ENTRY, join(buildDir, "util.ts"));
-		await copyFile(modelPath, join(buildDir, "model.pt"));
-		await copyFile(INFER_SCRIPT, join(buildDir, "infer.py"));
-		await copyFile(LOGGER_SCRIPT, join(buildDir, "logger.py"));
-		await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
-
-		const proc = Bun.spawn(
-			["bun", "build", "--compile", "--minify", join(buildDir, "cli.ts"), "--outfile", outBinary],
-			{ stdout: "pipe", stderr: "pipe" },
-		);
-		runningProcesses.set(runId, proc);
-		try {
-			await streamProcessOutput(proc, {
-				stderrHandler: async line => { stderr += line + "\n"; },
-			});
-			const exitCode = await proc.exited;
-			if (exitCode !== 0) return stderr.trim() || "Unknown build failure";
-			return null;
-		} finally {
-			runningProcesses.delete(runId);
-		}
-	} finally {
-		await rm(buildDir, { recursive: true, force: true }).catch(() => {});
-	}
-}
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
@@ -73,8 +41,8 @@ export const exportHandlers = {
 		if (!(await Bun.file(modelPath).exists()))
 			return { filePath: "", filename: "", error: "Model weights not found." };
 
-		const safeName   = safeName(runName);
-		const binaryName = `${safeName}-cli${IS_WIN ? ".exe" : ""}`;
+		const name       = safeName(runName);
+		const binaryName = `${name}-cli${IS_WIN ? ".exe" : ""}`;
 		const outBinary  = join(tmpdir(), binaryName);
 		const buildError = await buildCLIArtifact(modelPath, outBinary, runId);
 		if (buildError) return { filePath: "", filename: "", error: `Compile failed: ${buildError}` };
@@ -89,8 +57,8 @@ export const exportHandlers = {
 		if (!(await Bun.file(modelPath).exists()))
 			return { bundlePath: "", error: "Model weights not found." };
 
-		const safeName  = safeName(runName);
-		const outBinary = join(destDir, `${safeName}-detect${IS_WIN ? ".exe" : ""}`);
+		const name      = safeName(runName);
+		const outBinary = join(destDir, `${name}-detect${IS_WIN ? ".exe" : ""}`);
 		const buildError = await buildCLIArtifact(modelPath, outBinary, runId);
 		if (buildError) return { bundlePath: "", error: `Compile failed: ${buildError}` };
 
@@ -116,11 +84,11 @@ export const exportHandlers = {
 		const FORMAT_EXT: Record<string, string> = {
 			pt: ".pt", onnx: ".onnx", tflite: ".tflite", coreml: "", openvino: "",
 		};
-		const safeName = safeName(runName);
+		const name = safeName(runName);
 
 		(async () => {
 			if (format === "pt") {
-				await log(JSON.stringify({ type: "done", filePath: modelPath, filename: `${safeName}.pt` }));
+				await log(JSON.stringify({ type: "done", filePath: modelPath, filename: `${name}.pt` }));
 				return;
 			}
 
@@ -148,7 +116,7 @@ export const exportHandlers = {
 			const exportedPath = data.exportedPath as string;
 
 			const ext      = FORMAT_EXT[format] ?? extname(exportedPath);
-			const destName = ext ? `${safeName}${ext}` : `${safeName}_${format}`;
+			const destName = ext ? `${name}${ext}` : `${name}_${format}`;
 
 			const srcStat = await stat(exportedPath);
 			if (srcStat.isDirectory()) {
