@@ -29,9 +29,9 @@ const args = Bun.argv.slice(2);
 if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
 	console.log(`Usage: ./${basename(Bun.argv[1])} <image.jpg> [options]`);
 	console.log("\nOptions:");
-	console.log("  --conf         Confidence threshold 0–1  (default: 0.5)");
-	console.log("  --log_path     Save setup log to file    (default: ~/.nab/cli-setup.log)");
-	console.log("  --output_path  Save detections as JSON   (default: none)");
+	console.log("  --conf          Confidence threshold 0–1  (default: 0.5)");
+	console.log("  --log-path      Save setup log to file    (default: ~/.nab/cli-setup.log)");
+	console.log("  --output-path   Save detections as JSON   (default: none)");
 	process.exit(0);
 }
 
@@ -42,8 +42,8 @@ let outputPath = "";
 
 for (let i = 1; i < args.length; i++) {
 	if ((args[i] === "--conf") && args[i + 1]) confidence = parseFloat(args[++i]);
-	if ((args[i] === "--log_path") && args[i + 1]) logPath = args[++i];
-	if ((args[i] === "--output_path") && args[i + 1]) outputPath = args[++i];
+	if ((args[i] === "--log_path" || args[i] === "--log-path") && args[i + 1]) logPath = args[++i];
+	if ((args[i] === "--output_path" || args[i] === "--output-path") && args[i + 1]) outputPath = args[++i];
 }
 
 if (!existsSync(imagePath)) {
