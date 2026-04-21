@@ -164,12 +164,19 @@ def prepare_dataset(dataset_path: Path, class_map: list[str], task: str) -> tupl
 # ── memory helpers ─────────────────────────────────────────────────────────────
 
 def get_ram_mb() -> int | None:
-    """RSS memory of this process in MB — reads /proc/self/status, no extra deps."""
+    """RSS memory of this process in MB."""
+    # Linux — read VmRSS from /proc/self/status
     try:
         with open("/proc/self/status") as f:
             for line in f:
                 if line.startswith("VmRSS:"):
                     return int(line.split()[1]) // 1024   # kB → MB
+    except Exception:
+        pass
+    # Windows — use psutil if available
+    try:
+        import psutil
+        return int(psutil.Process().memory_info().rss // (1024 * 1024))
     except Exception:
         pass
     return None

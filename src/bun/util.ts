@@ -342,7 +342,7 @@ export async function prepareEnvironment(
 		await run([RUNTIME_PYTHON, "-m", "venv", "--clear", VENV_DIR], "venv create");
 		await log("[setup] Virtual environment created.");
 		await log("[setup] Installing ultralytics (first run only - may take a few minutes)...");
-		await runPip(["ultralytics"], "pip install ultralytics");
+		await runPip(["ultralytics", "psutil"], "pip install ultralytics psutil");
 		await Bun.write(VENV_READY_MARKER, "ready");
 		await log("[setup] Environment ready.");
 	}
