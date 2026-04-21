@@ -379,7 +379,7 @@ export async function buildCLIArtifact(modelPath: string, outBinary: string, run
 		await copyFile(LOGGER_SCRIPT,    join(buildDir, "logger.py"));
 		await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
 
-		const bunExe = Bun.argv[0] ?? "bun";
+		const bunExe = process.execPath;
 		const proc = Bun.spawn(
 			[bunExe, "build", "--compile", "--minify", join(buildDir, "cli.ts"), "--outfile", outBinary],
 			{ stdout: "pipe", stderr: "pipe" },
