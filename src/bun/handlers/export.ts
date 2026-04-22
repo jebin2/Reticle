@@ -44,8 +44,9 @@ export const exportHandlers = {
 		const name       = safeName(runName);
 		const binaryName = `${name}-cli${IS_WIN ? ".exe" : ""}`;
 		const downloadsDir = join(homedir(), "Downloads");
-		await mkdir(downloadsDir, { recursive: true });
+		try { await mkdir(downloadsDir, { recursive: true }); } catch {}
 		const outBinary = join(downloadsDir, binaryName);
+		await rm(outBinary, { force: true }).catch(() => {});
 		const buildError = await buildCLIArtifact(modelPath, outBinary, runId);
 		if (buildError) return { filePath: "", filename: "", error: `Compile failed: ${buildError}` };
 
@@ -149,7 +150,7 @@ export const exportHandlers = {
 
 	downloadFile: async ({ srcPath }: { srcPath: string }) => {
 		const downloadsDir = join(homedir(), "Downloads");
-		await mkdir(downloadsDir, { recursive: true });
+		try { await mkdir(downloadsDir, { recursive: true }); } catch {}
 		const destPath = join(downloadsDir, basename(exp(srcPath)));
 		const srcStat  = await stat(exp(srcPath));
 		if (srcStat.isDirectory()) {
