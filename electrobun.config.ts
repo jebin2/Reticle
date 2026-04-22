@@ -28,6 +28,7 @@ export default {
 			"src/mainview/index.html": "views/mainview/index.html",
 			"src/mainview/index.css": "views/mainview/index.css",
 			"resources/app.png": "views/mainview/app.png",
+			"resources/app.ico": "app.ico",
 			"src/python/train.py": "python/train.py",
 			"src/python/infer.py": "python/infer.py",
 			"src/python/export.py": "python/export.py",
