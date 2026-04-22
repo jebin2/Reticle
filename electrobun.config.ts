@@ -11,6 +11,15 @@ export default {
 		bun: {
 			entrypoint: "src/bun/index.ts",
 		},
+		win: {
+			icon: "resources/icon_transparent.ico",
+		},
+		linux: {
+			icon: "resources/icon_transparent.png",
+		},
+		mac: {
+			icons: "resources/icon.iconset",
+		},
 		views: {
 			mainview: {
 				entrypoint: "src/mainview/main.tsx",
