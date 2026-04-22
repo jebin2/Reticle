@@ -38,8 +38,9 @@ export const exportHandlers = {
 		outputPath: string; runName: string; runId: string;
 	}) => {
 		const modelPath = getModelPath(exp(outputPath));
-		if (!(await Bun.file(modelPath).exists()))
+		if (!(await Bun.file(modelPath).exists())) {
 			return { filePath: "", filename: "", error: "Model weights not found." };
+		}
 
 		const name       = safeName(runName);
 		const binaryName = `${name}-cli${IS_WIN ? ".exe" : ""}`;
@@ -47,7 +48,9 @@ export const exportHandlers = {
 		const buildInTemp = join(tempDir, binaryName);
 		await rm(buildInTemp, { force: true }).catch(() => {});
 		const buildError = await buildCLIArtifact(modelPath, buildInTemp, runId);
-		if (buildError) return { filePath: "", filename: "", error: `Compile failed: ${buildError}` };
+		if (buildError) {
+			return { filePath: "", filename: "", error: `Compile failed: ${buildError}` };
+		}
 
 		const downloadsDir = join(homedir(), "Downloads");
 		try { await mkdir(downloadsDir, { recursive: true }); } catch {}

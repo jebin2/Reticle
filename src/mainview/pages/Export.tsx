@@ -94,7 +94,7 @@ export default function Export({ runs }: Props) {
           if (ev.type === "done") {
             downloadBlobFile(getBridgeUrl(ev.filePath), ev.filename)
               .then(() => setDlModal(prev => ({ ...prev, status: "done", filename: ev.filename })))
-              .catch(e => setDlModal(prev => ({ ...prev, status: "error", error: String(e) })));
+              .catch((e: unknown) => setDlModal(prev => ({ ...prev, status: "error", error: String(e) })));
             return;
           }
           if (ev.type === "error") {
@@ -116,7 +116,6 @@ export default function Export({ runs }: Props) {
         if (res.error) {
           setDlModal(prev => ({ ...prev, status: "error", error: res.error! }));
         } else {
-          await downloadBlobFile(getBridgeUrl(res.filePath), res.filename);
           setDlModal(prev => ({ ...prev, status: "done", filename: res.filename }));
         }
       } catch (e) {
