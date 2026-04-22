@@ -1,6 +1,6 @@
 # Nab
 
-Train custom object detection models — no code, no terminal.
+Train custom YOLO object detection models — no code.
 
 ## Prerequisites
 
