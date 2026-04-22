@@ -12,7 +12,7 @@ export default {
 			entrypoint: "src/bun/index.ts",
 		},
 		win: {
-			icon: "resources/app.ico",
+			icon: "app.ico",
 		},
 		linux: {
 			icon: "resources/app.png",
