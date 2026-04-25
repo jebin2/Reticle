@@ -9,6 +9,9 @@ export default {
 	},
 	files: ["out/**"],
 	extraResources: [
+		{ from: "resources/app.png",  to: "app.png"  },
+		{ from: "resources/app.ico",  to: "app.ico"  },
+		{ from: "resources/app.icns", to: "app.icns" },
 		{ from: "src/python", to: "python", filter: ["**/*.py"] },
 		{ from: "src/bun/cli.ts", to: "bun/cli.ts" },
 		{ from: "src/bun/util.ts", to: "bun/util.ts" },
