@@ -1,11 +1,12 @@
 /**
  * Shared utilities used by multiple RPC handler modules.
- * Pure I/O helpers only — no Electrobun / window dependencies.
+ * Pure I/O helpers only — no framework dependencies.
  */
 
-import { readdir, stat } from "fs/promises";
+import { readFile, readdir, stat } from "fs/promises";
 import { extname, join } from "path";
 import { homedir } from "os";
+import { fileExists } from "./util";
 import { parseSegmentationLine, isTruePolygon } from "./polygon";
 
 /** Expand a leading ~ to the real home directory. */
@@ -22,21 +23,16 @@ export type AnnotatedImageEntry = {
 	mtime: number;
 };
 
-/** Read a newline-delimited log file and return non-empty lines. */
 export async function readLogFile(logPath: string): Promise<string[]> {
 	try {
-		const content = await Bun.file(logPath).text();
+		const content = await readFile(logPath, "utf-8");
 		return content.split("\n").filter(l => l.trim());
 	} catch { return []; }
 }
 
-/**
- * Return true when a single label .txt file contains at least one true polygon.
- * Exported so callers that already have the file path can skip the directory scan.
- */
 export async function checkFileHasPolygon(labelPath: string): Promise<boolean> {
 	let text: string;
-	try { text = await Bun.file(labelPath).text(); } catch { return false; }
+	try { text = await readFile(labelPath, "utf-8"); } catch { return false; }
 	for (const line of text.trim().split("\n")) {
 		const pts = parseSegmentationLine(line);
 		if (pts && isTruePolygon(pts)) return true;
@@ -44,10 +40,6 @@ export async function checkFileHasPolygon(labelPath: string): Promise<boolean> {
 	return false;
 }
 
-/**
- * Scan an asset's label files and return whether any annotation is a true
- * polygon (not just a bbox converted to an axis-aligned 4-corner rectangle).
- */
 export async function detectHasPolygons(storagePath: string): Promise<boolean> {
 	const labelsDir = join(storagePath, "labels");
 	let files: string[];
@@ -59,10 +51,6 @@ export async function detectHasPolygons(storagePath: string): Promise<boolean> {
 	return false;
 }
 
-/**
- * Return the annotated images in an asset: image file present, matching label
- * file present, and the label file contains at least one non-empty line.
- */
 export async function listAnnotatedImages(assetPath: string): Promise<AnnotatedImageEntry[]> {
 	const imagesDir = join(exp(assetPath), "images");
 	const labelsDir = join(exp(assetPath), "labels");
@@ -77,9 +65,9 @@ export async function listAnnotatedImages(assetPath: string): Promise<AnnotatedI
 	for (const entry of entries) {
 		if (!entry.isFile() || !IMAGE_EXTS.has(extname(entry.name).toLowerCase())) continue;
 		const labelPath = join(labelsDir, entry.name.slice(0, entry.name.lastIndexOf(".")) + ".txt");
-		const labelFile = Bun.file(labelPath);
-		if (!(await labelFile.exists())) continue;
-		if (!(await labelFile.text()).trim()) continue;
+		if (!(await fileExists(labelPath))) continue;
+		const text = await readFile(labelPath, "utf-8").catch(() => "");
+		if (!text.trim()) continue;
 		const labelStat = await stat(labelPath);
 		result.push({
 			imgPath: join(imagesDir, entry.name),

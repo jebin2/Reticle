@@ -1,23 +1,23 @@
+import { spawn } from "child_process";
 import { appendFile, mkdir, copyFile, cp, rm, stat } from "fs/promises";
 import { join, extname, basename, dirname } from "path";
 import { homedir, tmpdir } from "os";
 import {
 	EXPORT_SCRIPT, VENV_PYTHON,
 	IS_WIN, runProcess, runningProcesses, modelPath as getModelPath,
-	buildCLIArtifact, coalescePipProgress, parseLastJsonLine, safeName,
+	buildCLIArtifact, coalescePipProgress, parseLastJsonLine, safeName, fileExists,
 } from "../util";
 import { exp, readLogFile } from "../common";
-
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 export const exportHandlers = {
 	exportModel: async ({ outputPath, format }: { outputPath: string; format: string }) => {
 		const modelPath = getModelPath(exp(outputPath));
-		if (!(await Bun.file(modelPath).exists()))
+		if (!(await fileExists(modelPath)))
 			return { exportedPath: "", fileSize: 0, error: "Model weights not found." };
 		if (format === "pt") {
-			const size = (await Bun.file(modelPath).size) ?? 0;
+			const { size } = await stat(modelPath);
 			return { exportedPath: modelPath, fileSize: size, error: null };
 		}
 		const { stdout, stderr } = await runProcess([VENV_PYTHON, EXPORT_SCRIPT], {
@@ -30,7 +30,7 @@ export const exportHandlers = {
 			return { exportedPath: "", fileSize: 0, error: `Export failed.${hint ? ` ${hint}` : ""}` };
 		}
 		if (data.error) return { exportedPath: "", fileSize: 0, error: data.error as string };
-		const fileSize = (await Bun.file(data.exportedPath as string).size) ?? 0;
+		const { size: fileSize } = await stat(data.exportedPath as string);
 		return { exportedPath: data.exportedPath as string, fileSize, error: null };
 	},
 
@@ -38,25 +38,21 @@ export const exportHandlers = {
 		outputPath: string; runName: string; runId: string;
 	}) => {
 		const modelPath = getModelPath(exp(outputPath));
-		if (!(await Bun.file(modelPath).exists())) {
+		if (!(await fileExists(modelPath)))
 			return { filePath: "", filename: "", error: "Model weights not found." };
-		}
 
 		const name       = safeName(runName);
 		const binaryName = `${name}-cli${IS_WIN ? ".exe" : ""}`;
-		const tempDir  = tmpdir();
-		const buildInTemp = join(tempDir, binaryName);
+		const buildInTemp = join(tmpdir(), binaryName);
 		await rm(buildInTemp, { force: true }).catch(() => {});
 		const buildError = await buildCLIArtifact(modelPath, buildInTemp, runId);
-		if (buildError) {
-			return { filePath: "", filename: "", error: `Compile failed: ${buildError}` };
-		}
+		if (buildError) return { filePath: "", filename: "", error: `Compile failed: ${buildError}` };
 
 		const downloadsDir = join(homedir(), "Downloads");
 		try { await mkdir(downloadsDir, { recursive: true }); } catch {}
 		let outBinary = join(downloadsDir, binaryName);
 		let counter = 1;
-		while (await Bun.file(outBinary).exists()) {
+		while (await fileExists(outBinary)) {
 			outBinary = join(downloadsDir, `${name}-cli (${counter})${IS_WIN ? ".exe" : ""}`);
 			counter++;
 		}
@@ -69,7 +65,7 @@ export const exportHandlers = {
 		outputPath: string; runName: string; destDir: string; runId: string;
 	}) => {
 		const modelPath = getModelPath(exp(outputPath));
-		if (!(await Bun.file(modelPath).exists()))
+		if (!(await fileExists(modelPath)))
 			return { bundlePath: "", error: "Model weights not found." };
 
 		const name      = safeName(runName);
@@ -90,7 +86,7 @@ export const exportHandlers = {
 		outputPath: string; format: string; runName: string; runId: string;
 	}) => {
 		const modelPath = getModelPath(exp(outputPath));
-		if (!(await Bun.file(modelPath).exists()))
+		if (!(await fileExists(modelPath)))
 			return { error: "Model weights not found." };
 
 		const logPath = join(exp(outputPath), `export-${runId}.log`);
@@ -138,9 +134,9 @@ export const exportHandlers = {
 				const parent  = dirname(exportedPath);
 				const dirName = basename(exportedPath);
 				const zipPath = join(parent, `${dirName}.zip`);
-				const proc    = Bun.spawn(["zip", "-r", "-q", zipPath, dirName], { cwd: parent, stdout: "pipe", stderr: "pipe" });
+				const proc    = spawn("zip", ["-r", "-q", zipPath, dirName], { cwd: parent, stdio: ["ignore", "pipe", "pipe"] });
 				runningProcesses.set(runId, proc);
-				const exitCode = await proc.exited;
+				const exitCode = await new Promise<number>(resolve => proc.on("close", code => resolve(code ?? 0)));
 				runningProcesses.delete(runId);
 				if (exitCode !== 0) {
 					await log(JSON.stringify({ type: "error", message: "Failed to create zip archive for export." }));
@@ -174,9 +170,7 @@ export const exportHandlers = {
 	},
 
 	deleteFolder: async ({ folderPath }: { folderPath: string }) => {
-		try {
-			await rm(exp(folderPath), { recursive: true, force: true });
-		} catch {}
+		try { await rm(exp(folderPath), { recursive: true, force: true }); } catch {}
 		return {};
 	},
 };

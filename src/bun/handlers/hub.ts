@@ -1,3 +1,4 @@
+import { spawn } from "child_process";
 import { mkdir, appendFile } from "fs/promises";
 import { join } from "path";
 import {
@@ -15,7 +16,6 @@ export const hubHandlers = {
 		const logPath = join(HUB_LOGS_DIR, `${jobId}.log`);
 		await mkdir(HUB_LOGS_DIR, { recursive: true });
 
-		// Fire-and-forget: env setup, pip install, then push.
 		(async () => {
 			const log = (line: string) => appendFile(logPath, line + "\n").catch(console.error);
 			try {
@@ -34,10 +34,10 @@ export const hubHandlers = {
 				await log(JSON.stringify({ type: "error", message: "Failed to install huggingface_hub package." }));
 				return;
 			}
-			const proc = Bun.spawn([VENV_PYTHON, PUSH_SCRIPT], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+			const proc = spawn(VENV_PYTHON, [PUSH_SCRIPT], { stdio: ["pipe", "pipe", "pipe"] });
 			const safe = safeName(runName);
-			proc.stdin.write(JSON.stringify({ modelPath: getModelPath(exp(outputPath)), repoId, token, fileName: `${safe}.pt` }));
-			proc.stdin.end();
+			proc.stdin?.write(JSON.stringify({ modelPath: getModelPath(exp(outputPath)), repoId, token, fileName: `${safe}.pt` }), "utf-8");
+			proc.stdin?.end();
 			await streamProcessOutput(proc, {
 				stdoutHandler: line => log(line),
 				stderrHandler: text => log(JSON.stringify({ type: "stderr", text })),

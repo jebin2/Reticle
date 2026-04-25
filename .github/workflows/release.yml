@@ -12,55 +12,58 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
         with:
-          bun-version: latest
-      - run: bun install
-      - name: Build app
-        run: bunx electrobun build --env=stable
-      - name: List artifacts
-        run: ls -la artifacts/
-      - name: Wrap installer with setup script
-        run: |
-          tar -xzf artifacts/stable-linux-*-Setup.tar.gz ./installer
-          chmod +x installer
-          cp scripts/linux-install-template.sh Nab-Linux.sh
-          LINES=$(wc -l < Nab-Linux.sh)
-          LINES=$((LINES + 1))
-          sed -i "s/__LINES__/$LINES/" Nab-Linux.sh
-          base64 -w 0 installer >> Nab-Linux.sh
-          chmod +x Nab-Linux.sh
-      - uses: softprops/action-gh-release@v1
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (electron-vite)
+        run: npm run build
+
+      - name: Package (AppImage + tar.gz)
+        run: npx electron-builder --linux --config electron-builder.config.ts --publish never
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
         with:
-          files: Nab-Linux.sh
+          files: |
+            dist/*.AppImage
+            dist/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-macos:
-    runs-on: macos-14
+    runs-on: macos-14          # Apple Silicon (arm64)
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
         with:
-          bun-version: latest
-      - run: bun install
-      - name: Build app
-        run: bunx electrobun build --env=stable
-      - name: List artifacts
-        run: ls -la artifacts/ && find build/ -type f
-      - name: Create DMG
-        run: |
-          APP=$(find build/stable-macos-*/ -maxdepth 1 -name "*.app" -type d | head -1)
-          echo "=== Found: $APP ==="
-          mkdir dmg-staging
-          cp -r "$APP" dmg-staging/
-          ln -s /Applications dmg-staging/Applications
-          hdiutil create -volname "Nab" -srcfolder dmg-staging -ov -format UDZO Nab-macOS.dmg
-      - uses: softprops/action-gh-release@v1
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (electron-vite)
+        run: npm run build
+
+      - name: Package (dmg + zip)
+        run: npx electron-builder --mac --config electron-builder.config.ts --publish never
+        env:
+          # Skip code-signing in CI — add CSC_LINK / CSC_KEY_PASSWORD secrets to enable it
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
         with:
-          files: Nab-macOS.dmg
+          files: |
+            dist/*.dmg
+            dist/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -70,31 +73,23 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
         with:
-          bun-version: latest
-      - run: bun install
-      - name: Build app
-        run: bunx electrobun build --env=stable
-      - name: List artifacts
-        shell: pwsh
-        run: Get-ChildItem artifacts/ -Recurse
-      - name: Install NSIS
-        run: choco install nsis -y --no-progress
-      - name: Build single-file installer (NSIS)
-        shell: pwsh
-        run: |
-          $src = Get-ChildItem artifacts/ -Filter "*Setup.zip" | Select-Object -First 1
-          Write-Host "=== Using: $($src.FullName) ==="
-          & "C:\Program Files\7-Zip\7z.exe" x $src.FullName -o"setup_extracted"
-          $iconSrc = "$env:GITHUB_WORKSPACE\resources\app.ico"
-          Copy-Item $iconSrc installer-icon.ico
-          Copy-Item installer-icon.ico setup_extracted\installer-icon.ico
-          Copy-Item scripts/installer.nsi installer.nsi
-          & "C:\Program Files (x86)\NSIS\makensis.exe" /DICON_PATH=installer-icon.ico installer.nsi
-          Write-Host "=== Created: $(Get-Item Nab-Windows.exe | Select-Object Name, Length) ==="
-      - uses: softprops/action-gh-release@v1
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (electron-vite)
+        run: npm run build
+
+      - name: Package (NSIS installer)
+        run: npx electron-builder --win --config electron-builder.config.ts --publish never
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
         with:
-          files: Nab-Windows.exe
+          files: dist/*Setup*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

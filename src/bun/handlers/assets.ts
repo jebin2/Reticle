@@ -1,79 +1,60 @@
-import Electrobun from "electrobun/bun";
-import { readdir, mkdir, copyFile } from "fs/promises";
+import { dialog } from "electron";
+import { readFile, readdir, mkdir, copyFile, writeFile } from "fs/promises";
 import { join, extname, basename } from "path";
 import { homedir } from "os";
-import { YOLO_DIR, IS_WIN } from "../util";
+import { YOLO_DIR, fileExists } from "../util";
 import { exp, IMAGE_EXTS, detectHasPolygons } from "../common";
 import { parseYoloLabels, serializeYoloLabels, type AnnotationRecord } from "../yoloLabels";
 import { pathExists, collectImagePaths, sortPathsNumerically } from "../pathUtils";
-
-async function fixCommaSplitPaths(parts: string[]): Promise<string[]> {
-	const result: string[] = [];
-	let candidate = "";
-	for (const part of parts) {
-		candidate = candidate ? `${candidate},${part}` : part;
-		if (await pathExists(candidate)) {
-			result.push(candidate);
-			candidate = "";
-		}
-	}
-	return result.length > 0 ? result : parts;
-}
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 export const assetHandlers = {
 	openImagesDialog: async () => {
-		// On Windows the native dialog doesn't understand the "*.ext,..." glob format,
-		// so we omit the filter and let the user pick any file.
-		const filePaths = await Electrobun.Utils.openFileDialog({
-			startingFolder: homedir(),
-			...(IS_WIN ? {} : { allowedFileTypes: "*.jpg,*.jpeg,*.png,*.webp,*.bmp,*.gif,*.tiff,*.tif" }),
-			canChooseFiles: true, canChooseDirectory: false, allowsMultipleSelection: true,
+		const result = await dialog.showOpenDialog({
+			defaultPath: homedir(),
+			properties:  ["openFile", "multiSelections"],
+			filters:     [{ name: "Images", extensions: ["jpg", "jpeg", "png", "webp", "bmp", "gif", "tiff", "tif"] }],
 		});
-		const canceled = !filePaths || filePaths.length === 0 || filePaths[0] === "";
-		if (canceled) return { canceled: true, paths: [] };
-		const fixed = await fixCommaSplitPaths(filePaths);
-		return { canceled: false, paths: fixed };
+		if (result.canceled || result.filePaths.length === 0)
+			return { canceled: true, paths: [] };
+		return { canceled: false, paths: result.filePaths };
 	},
 
 	openFolderDialog: async () => {
-		const filePaths = await Electrobun.Utils.openFileDialog({
-			startingFolder: homedir(), canChooseFiles: false,
-			canChooseDirectory: true, allowsMultipleSelection: false,
+		const result = await dialog.showOpenDialog({
+			defaultPath: homedir(),
+			properties:  ["openDirectory"],
 		});
-		const canceled = !filePaths || filePaths.length === 0 || filePaths[0] === "";
-		if (canceled) return { canceled: true, paths: [] };
-		const [folderPath] = await fixCommaSplitPaths(filePaths);
+		if (result.canceled || result.filePaths.length === 0)
+			return { canceled: true, paths: [] };
+		const [folderPath] = result.filePaths;
+		if (!(await pathExists(folderPath))) return { canceled: true, paths: [] };
 		const paths = sortPathsNumerically(await collectImagePaths(folderPath));
 		return { canceled: false, paths };
 	},
 
 	openFolderPathDialog: async () => {
-		const filePaths = await Electrobun.Utils.openFileDialog({
-			startingFolder: homedir(), canChooseFiles: false,
-			canChooseDirectory: true, allowsMultipleSelection: false,
+		const result = await dialog.showOpenDialog({
+			defaultPath: homedir(),
+			properties:  ["openDirectory"],
 		});
-		const canceled = !filePaths || filePaths.length === 0 || filePaths[0] === "";
-		if (canceled) return { canceled: true, path: "" };
-		const [folderPath] = await fixCommaSplitPaths(filePaths);
-		return { canceled: false, path: folderPath };
+		if (result.canceled || result.filePaths.length === 0)
+			return { canceled: true, path: "" };
+		return { canceled: false, path: result.filePaths[0] };
 	},
 
 	loadStudio: async () => {
 		const studioFile = join(YOLO_DIR, "studio.json");
 		try {
-			const file = Bun.file(studioFile);
-			if (await file.exists()) {
-				const data = JSON.parse(await file.text());
+			if (await fileExists(studioFile)) {
+				const data = JSON.parse(await readFile(studioFile, "utf-8"));
 				if (Array.isArray(data.runs)) {
 					data.runs = data.runs.map((r: { status: string }) =>
 						r.status === "training" || r.status === "installing"
 							? { ...r, status: "paused" } : r
 					);
 				}
-				// Recompute hasPolygons from disk on every load — label files are the
-				// authoritative source. Only persist if something changed.
 				if (Array.isArray(data.assets)) {
 					let dirty = false;
 					await Promise.all(data.assets.map(async (asset: { storagePath?: string; hasPolygons?: boolean }) => {
@@ -84,7 +65,7 @@ export const assetHandlers = {
 							dirty = true;
 						}
 					}));
-					if (dirty) await Bun.write(studioFile, JSON.stringify(data, null, 2));
+					if (dirty) await writeFile(studioFile, JSON.stringify(data, null, 2));
 				}
 				return data;
 			}
@@ -94,7 +75,7 @@ export const assetHandlers = {
 
 	saveStudio: async ({ assets, runs }: { assets: unknown[]; runs: unknown[] }) => {
 		await mkdir(YOLO_DIR, { recursive: true });
-		await Bun.write(join(YOLO_DIR, "studio.json"), JSON.stringify({ assets, runs }, null, 2));
+		await writeFile(join(YOLO_DIR, "studio.json"), JSON.stringify({ assets, runs }, null, 2));
 		return {};
 	},
 
@@ -108,12 +89,12 @@ export const assetHandlers = {
 		for (const filename of imageFiles) {
 			const labelPath = join(labelsDir, filename.replace(/\.[^.]+$/, ".txt"));
 			try {
-				labels[filename] = parseYoloLabels(await Bun.file(labelPath).text());
+				labels[filename] = parseYoloLabels(await readFile(labelPath, "utf-8"));
 			} catch { labels[filename] = []; }
 		}
 		let classes: string[] = [];
 		try {
-			const text = await Bun.file(join(exp(storagePath), "classes.txt")).text();
+			const text = await readFile(join(exp(storagePath), "classes.txt"), "utf-8");
 			classes = text.trim().split("\n").filter(Boolean);
 		} catch {}
 		return { images: imageFiles.map(f => ({ filename: f, filePath: join(imagesDir, f) })), labels, classes };
@@ -128,9 +109,9 @@ export const assetHandlers = {
 		await mkdir(labelsDir, { recursive: true });
 		for (const [filename, anns] of Object.entries(labels)) {
 			const labelPath = join(labelsDir, filename.replace(/\.[^.]+$/, ".txt"));
-			await Bun.write(labelPath, serializeYoloLabels(anns));
+			await writeFile(labelPath, serializeYoloLabels(anns));
 		}
-		await Bun.write(join(exp(storagePath), "classes.txt"), classes.join("\n"));
+		await writeFile(join(exp(storagePath), "classes.txt"), classes.join("\n"));
 		return {};
 	},
 
@@ -151,7 +132,7 @@ export const assetHandlers = {
 			if (file.sourcePath && file.sourcePath !== dest) await copyFile(file.sourcePath, dest);
 			else if (file.dataUrl) {
 				const [, b64] = file.dataUrl.split(",");
-				await Bun.write(dest, Buffer.from(b64, "base64"));
+				await writeFile(dest, Buffer.from(b64, "base64"));
 			}
 			results.push({ filename: basename(file.filename), filePath: dest });
 		}

@@ -72,7 +72,8 @@ export default function Export({ runs }: Props) {
   }, [runs]);
 
   useEffect(() => {
-    try { setIsWindows(getBridgeConfig().isWindows); } catch {}
+    const cfg = getBridgeConfig();
+    if (cfg) setIsWindows(cfg.isWindows);
   }, []);
 
   const selectedRun = doneRuns.find(r => r.id === selectedRunId) ?? null;

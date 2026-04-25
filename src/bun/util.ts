@@ -1,6 +1,25 @@
-import { appendFile, copyFile, mkdir, mkdtemp, rm, unlink, writeFile } from "fs/promises";
+import { spawn, type ChildProcess } from "child_process";
+import { access, appendFile, copyFile, mkdir, mkdtemp, rm, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import { homedir, tmpdir } from "os";
+
+// ── Resource paths ────────────────────────────────────────────────────────────
+// Resolved lazily so the module can be imported in non-Electron environments
+// (e.g. vitest) without crashing.
+
+function resolveResourceDirs(): { pythonDir: string; bunDir: string } {
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-require-imports
+		const { app } = require("electron") as typeof import("electron");
+		const base = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), "src");
+		return { pythonDir: join(base, "python"), bunDir: join(base, "bun") };
+	} catch {
+		const base = join(process.cwd(), "src");
+		return { pythonDir: join(base, "python"), bunDir: join(base, "bun") };
+	}
+}
+
+const { pythonDir: PYTHON_DIR, bunDir: BUN_DIR } = resolveResourceDirs();
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -11,14 +30,14 @@ export const VENV_DIR          = join(YOLO_DIR, "venv");
 export const RUNTIME_PYTHON    = join(RUNTIME_DIR, "python", IS_WIN ? "python.exe" : "bin/python3");
 export const VENV_PYTHON       = join(VENV_DIR, IS_WIN ? "Scripts/python.exe" : "bin/python");
 export const VENV_READY_MARKER = join(VENV_DIR, ".ready");
-export const CLI_ENTRY         = join(import.meta.dir, "cli.ts");
-export const UTIL_ENTRY        = join(import.meta.dir, "util.ts");
-export const TRAIN_SCRIPT      = join(import.meta.dir, "../python/train.py");
-export const INFER_SCRIPT      = join(import.meta.dir, "../python/infer.py");
-export const LOGGER_SCRIPT     = join(import.meta.dir, "../python/logger.py");
-export const EXPORT_SCRIPT     = join(import.meta.dir, "../python/export.py");
-export const YOLO_UTILS_SCRIPT = join(import.meta.dir, "../python/yolo_utils.py");
-export const PUSH_SCRIPT       = join(import.meta.dir, "../python/push_to_hub.py");
+export const CLI_ENTRY         = join(BUN_DIR, "cli.ts");
+export const UTIL_ENTRY        = join(BUN_DIR, "util.ts");
+export const TRAIN_SCRIPT      = join(PYTHON_DIR, "train.py");
+export const INFER_SCRIPT      = join(PYTHON_DIR, "infer.py");
+export const LOGGER_SCRIPT     = join(PYTHON_DIR, "logger.py");
+export const EXPORT_SCRIPT     = join(PYTHON_DIR, "export.py");
+export const YOLO_UTILS_SCRIPT = join(PYTHON_DIR, "yolo_utils.py");
+export const PUSH_SCRIPT       = join(PYTHON_DIR, "push_to_hub.py");
 export const HUB_LOGS_DIR      = join(YOLO_DIR, "hub-logs");
 export const MODELS_DIR        = join(YOLO_DIR, "models");
 export const RUNTIME_TARBALL   = join(YOLO_DIR, "python-runtime.tar.gz");
@@ -41,9 +60,9 @@ type RunProcessOptions = {
 	runId?: string;
 };
 
-// ── Process registry (for stopTraining) ──────────────────────────────────────
+// ── Process registry ──────────────────────────────────────────────────────────
 
-export const runningProcesses = new Map<string, ReturnType<typeof Bun.spawn>>();
+export const runningProcesses = new Map<string, ChildProcess>();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,70 +81,73 @@ export function cleanLine(raw: string): string {
 	return segments[segments.length - 1].replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").trim();
 }
 
+export async function fileExists(p: string): Promise<boolean> {
+	try { await access(p); return true; } catch { return false; }
+}
+
 export function coalescePipProgress(log: LineHandler): LineHandler {
 	let lastTotal = 0;
 	let lastBucket = -1;
 
 	return async (line: string) => {
 		const match = line.match(/^Progress\s+(\d+)\s+of\s+(\d+)/i);
-		if (!match) {
-			await log(line);
-			return;
-		}
+		if (!match) { await log(line); return; }
 
-		const done = Number(match[1]);
+		const done  = Number(match[1]);
 		const total = Number(match[2]);
 		if (!Number.isFinite(done) || !Number.isFinite(total) || total <= 0) return;
 
-		if (total !== lastTotal) {
-			lastTotal = total;
-			lastBucket = -1;
-		}
+		if (total !== lastTotal) { lastTotal = total; lastBucket = -1; }
 
-		const pct = Math.min(100, Math.floor((done / total) * 100));
+		const pct    = Math.min(100, Math.floor((done / total) * 100));
 		const bucket = pct === 100 ? 100 : Math.floor(pct / 5) * 5;
 		if (bucket <= lastBucket && pct !== 100) return;
 		lastBucket = bucket;
 
-		const doneMB = (done / (1024 * 1024)).toFixed(1);
+		const doneMB  = (done  / (1024 * 1024)).toFixed(1);
 		const totalMB = (total / (1024 * 1024)).toFixed(1);
 		await log(`Download progress ${pct}% (${doneMB}/${totalMB} MB)`);
 	};
 }
 
-async function streamPipe(
-	pipe: ReturnType<typeof Bun.spawn>["stdout"] | ReturnType<typeof Bun.spawn>["stderr"],
+// ── Stream helpers (Node.js Readable streams) ─────────────────────────────────
+
+function streamPipe(
+	readable: NodeJS.ReadableStream | null | undefined,
 	onLine?: LineHandler,
 	collect = false,
 ): Promise<string> {
-	if (!pipe || typeof pipe === "number" || !("getReader" in pipe)) return "";
-	const decoder = new TextDecoder();
-	let text = "";
-	let buf = "";
-	const reader = pipe.getReader();
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		const chunk = value;
-		const decoded = decoder.decode(chunk, { stream: true });
-		if (collect) text += decoded;
-		if (!onLine) continue;
-		buf += decoded;
-		const lines = buf.split(/\r\n|\n|\r/);
-		buf = lines.pop() ?? "";
-		for (const line of lines) {
-			const clean = cleanLine(line);
-			if (clean) await onLine(clean);
-		}
-	}
-	const tail = decoder.decode();
-	if (collect) text += tail;
-	if (onLine) {
-		if (tail) buf += tail;
-		const clean = cleanLine(buf);
-		if (clean) await onLine(clean);
-	}
-	return text;
+	return new Promise((resolve, reject) => {
+		if (!readable) { resolve(""); return; }
+		let text = "";
+		let buf  = "";
+
+		readable.on("data", (chunk: Buffer | string) => {
+			const decoded = Buffer.isBuffer(chunk) ? chunk.toString("utf-8") : chunk;
+			if (collect) text += decoded;
+			if (!onLine) return;
+			buf += decoded;
+			const lines = buf.split(/\r\n|\n|\r/);
+			buf = lines.pop() ?? "";
+			for (const line of lines) {
+				const clean = cleanLine(line);
+				if (clean) onLine(clean).catch(() => {});
+			}
+		});
+
+		readable.on("end", () => {
+			if (onLine && buf) {
+				const clean = cleanLine(buf);
+				if (clean) {
+					onLine(clean).catch(() => {}).finally(() => resolve(text));
+					return;
+				}
+			}
+			resolve(text);
+		});
+
+		readable.on("error", reject);
+	});
 }
 
 export async function runProcess(
@@ -140,22 +162,25 @@ export async function runProcess(
 		runId,
 	}: RunProcessOptions = {},
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-	const proc = Bun.spawn(cmd, {
-		stdin: "pipe",
-		stdout: "pipe",
-		stderr: "pipe",
-		env,
+	const [executable, ...args] = cmd;
+	const proc = spawn(executable, args, {
+		stdio: ["pipe", "pipe", "pipe"],
+		env:   env ? { ...process.env, ...env } : process.env as Record<string, string>,
 	});
+
 	if (runId) runningProcesses.set(runId, proc);
-	if (stdinData !== undefined && proc.stdin !== null) {
-		proc.stdin.write(stdinData);
-	}
+
+	proc.stdin?.write(stdinData ?? "", "utf-8");
 	proc.stdin?.end();
+
 	try {
+		const exitCodePromise = new Promise<number>(resolve =>
+			proc.on("close", code => resolve(code ?? 0))
+		);
 		const [stdout, stderr, exitCode] = await Promise.all([
 			streamPipe(proc.stdout, stdoutHandler, collectStdout),
 			streamPipe(proc.stderr, stderrHandler, collectStderr),
-			proc.exited,
+			exitCodePromise,
 		]);
 		return { stdout, stderr, exitCode };
 	} finally {
@@ -164,11 +189,8 @@ export async function runProcess(
 }
 
 export async function streamProcessOutput(
-	proc: ReturnType<typeof Bun.spawn>,
-	handlers: {
-		stdoutHandler?: LineHandler;
-		stderrHandler?: LineHandler;
-	},
+	proc: ChildProcess,
+	handlers: { stdoutHandler?: LineHandler; stderrHandler?: LineHandler },
 ): Promise<void> {
 	await Promise.all([
 		streamPipe(proc.stdout, handlers.stdoutHandler, false),
@@ -176,9 +198,8 @@ export async function streamProcessOutput(
 	]);
 }
 
-// Canonical paths to YOLO weight files for a given output directory.
-// The nested "weights/weights" structure is what Ultralytics writes by default
-// when project=outputPath and name="weights".
+// ── Path helpers ──────────────────────────────────────────────────────────────
+
 export function checkpointPath(outputPath: string): string {
 	return join(outputPath, "weights", "weights", "last.pt");
 }
@@ -188,8 +209,6 @@ export function modelPath(outputPath: string): string {
 }
 
 // ── downloadPythonRuntime ─────────────────────────────────────────────────────
-// Downloads python-build-standalone for the current OS/arch into the local
-// Nab cache under ~/.nab.
 
 const PYTHON_PLATFORM_MAP: Record<string, string> = {
 	"linux-x64":    "x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
@@ -240,8 +259,6 @@ export async function downloadPythonRuntime(
 }
 
 // ── PTY wrapper ───────────────────────────────────────────────────────────────
-// Runs a command inside a pseudo-terminal so tools like pip can stream progress.
-// Output still goes through runProcess/cleanLine before reaching the UI.
 
 export async function runWithPTY(
 	cmd: string[],
@@ -265,8 +282,6 @@ export async function runWithPTY(
 }
 
 // ── prepareEnvironment ────────────────────────────────────────────────────────
-// Ensures the cached Python runtime + ultralytics venv are ready.
-// Returns VENV_PYTHON so the caller can spawn Python directly.
 
 export async function prepareEnvironment(
 	logPath: string,
@@ -295,8 +310,6 @@ export async function prepareEnvironment(
 		}
 	}
 
-	// Keep pip progress textual so the UI shows download movement without
-	// rich/PTY cursor controls corrupting the log view.
 	async function runPip(packages: string[], label: string): Promise<void> {
 		const pipLog = coalescePipProgress(log);
 		const cmd = [VENV_PYTHON, "-m", "pip", "install", "--progress-bar", "raw", ...packages];
@@ -311,8 +324,8 @@ export async function prepareEnvironment(
 		}
 	}
 
-	if (!(await Bun.file(RUNTIME_PYTHON).exists())) {
-		if (!(await Bun.file(RUNTIME_TARBALL).exists()))
+	if (!(await fileExists(RUNTIME_PYTHON))) {
+		if (!(await fileExists(RUNTIME_TARBALL)))
 			await downloadPythonRuntime(RUNTIME_TARBALL, log);
 		await log("[setup] Extracting Python runtime...");
 		await mkdir(RUNTIME_DIR, { recursive: true });
@@ -320,20 +333,17 @@ export async function prepareEnvironment(
 		await log("[setup] Python runtime ready.");
 	}
 
-	// Verify the venv is healthy (e.g. symlinks may point to an old path after a
-	// project rename). If the Python binary can't be executed, wipe and recreate.
-	const venvOk = await Bun.file(VENV_READY_MARKER).exists() &&
+	const venvOk = (await fileExists(VENV_READY_MARKER)) &&
 		await new Promise<boolean>(resolve => {
 			try {
-				const p = Bun.spawn([VENV_PYTHON, "-c", "import sys; sys.exit(0)"], {
-					stdout: "ignore", stderr: "ignore",
-				});
-				p.exited.then(code => resolve(code === 0)).catch(() => resolve(false));
+				const p = spawn(VENV_PYTHON, ["-c", "import sys; sys.exit(0)"], { stdio: "ignore" });
+				p.on("close", code => resolve(code === 0));
+				p.on("error", () => resolve(false));
 			} catch { resolve(false); }
 		});
 
 	if (!venvOk) {
-		if (await Bun.file(VENV_READY_MARKER).exists()) {
+		if (await fileExists(VENV_READY_MARKER)) {
 			await log("[setup] Virtual environment is broken — recreating...");
 			await rm(VENV_DIR, { recursive: true, force: true }).catch(() => {});
 			await unlink(VENV_READY_MARKER).catch(() => {});
@@ -343,15 +353,14 @@ export async function prepareEnvironment(
 		await log("[setup] Virtual environment created.");
 		await log("[setup] Installing ultralytics (first run only - may take a few minutes)...");
 		await runPip(["ultralytics", "psutil"], "pip install ultralytics psutil");
-		await Bun.write(VENV_READY_MARKER, "ready");
+		await writeFile(VENV_READY_MARKER, "ready");
 		await log("[setup] Environment ready.");
 	} else {
-		// Ensure psutil is present — may be missing from older installations that
-		// pre-date it being added to the install list.
 		const psutilOk = await new Promise<boolean>(resolve => {
 			try {
-				const p = Bun.spawn([VENV_PYTHON, "-c", "import psutil"], { stdout: "ignore", stderr: "ignore" });
-				p.exited.then(code => resolve(code === 0)).catch(() => resolve(false));
+				const p = spawn(VENV_PYTHON, ["-c", "import psutil"], { stdio: "ignore" });
+				p.on("close", code => resolve(code === 0));
+				p.on("error", () => resolve(false));
 			} catch { resolve(false); }
 		});
 		if (!psutilOk) {
@@ -364,36 +373,27 @@ export async function prepareEnvironment(
 }
 
 // ── buildCLIArtifact ──────────────────────────────────────────────────────────
-// Compiles a self-contained CLI binary (bun build --compile) that bundles the
-// model weights and inference scripts. Returns null on success, error string on failure.
 
 export async function buildCLIArtifact(modelPath: string, outBinary: string, runId: string): Promise<string | null> {
 	const buildDir = await mkdtemp(join(tmpdir(), "nab-cli-"));
 	let stderr = "";
 
 	try {
-		await copyFile(CLI_ENTRY,        join(buildDir, "cli.ts"));
-		await copyFile(UTIL_ENTRY,       join(buildDir, "util.ts"));
-		await copyFile(modelPath,        join(buildDir, "model.pt"));
-		await copyFile(INFER_SCRIPT,     join(buildDir, "infer.py"));
-		await copyFile(LOGGER_SCRIPT,    join(buildDir, "logger.py"));
+		await copyFile(CLI_ENTRY,         join(buildDir, "cli.ts"));
+		await copyFile(UTIL_ENTRY,        join(buildDir, "util.ts"));
+		await copyFile(modelPath,         join(buildDir, "model.pt"));
+		await copyFile(INFER_SCRIPT,      join(buildDir, "infer.py"));
+		await copyFile(LOGGER_SCRIPT,     join(buildDir, "logger.py"));
 		await copyFile(YOLO_UTILS_SCRIPT, join(buildDir, "yolo_utils.py"));
 
-		// On Windows bun is not in PATH, so use the bundled executable directly.
-		// On Linux/macOS the system bun (via PATH) supports --compile correctly.
-		const bunExe = IS_WIN ? process.execPath : "bun";
 		const buildArgs = ["build", "--compile", "--minify", join(buildDir, "cli.ts"), "--outfile", outBinary];
-		if (IS_WIN) buildArgs.push(`--windows-icon=${join(import.meta.dir, "..", "app.ico")}`);
-		const proc = Bun.spawn(
-			[bunExe, ...buildArgs],
-			{ stdout: "pipe", stderr: "pipe" },
-		);
+		const proc = spawn("bun", buildArgs, { stdio: ["ignore", "pipe", "pipe"] });
 		runningProcesses.set(runId, proc);
 		try {
 			await streamProcessOutput(proc, {
 				stderrHandler: async line => { stderr += line + "\n"; },
 			});
-			const exitCode = await proc.exited;
+			const exitCode = await new Promise<number>(resolve => proc.on("close", code => resolve(code ?? 0)));
 			if (exitCode !== 0) return stderr.trim() || "Unknown build failure";
 			return null;
 		} finally {
@@ -405,8 +405,6 @@ export async function buildCLIArtifact(modelPath: string, outBinary: string, run
 }
 
 // ── runInference ──────────────────────────────────────────────────────────────
-// Calls prepareEnvironment then spawns inferScript with the standard JSON
-// stdin → JSON stdout protocol. Used by both the desktop RPC handler and CLI.
 
 export async function runInference(
 	imagePath:   string,

@@ -2,24 +2,30 @@
 	"name": "nab",
 	"version": "0.1.0",
 	"description": "Just annotate and train — a standalone desktop app for custom YOLO model training",
+	"main": "out/main/index.js",
 	"scripts": {
-		"dev": "electrobun dev --watch",
-		"build": "electrobun build --env=stable",
-		"typecheck": "bunx tsc --noEmit",
-		"check": "bun run typecheck",
+		"dev": "electron-vite dev",
+		"build": "electron-vite build",
+		"package": "electron-vite build && electron-builder --config electron-builder.config.ts",
+		"typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+		"check": "npm run typecheck",
 		"test": "vitest"
 	},
 	"dependencies": {
-		"electrobun": "^1.16.0",
 		"lucide-react": "^0.475.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1"
 	},
 	"devDependencies": {
-		"@types/bun": "latest",
+		"@types/node": "^22.0.0",
 		"@types/react": "^18.3.12",
 		"@types/react-dom": "^18.3.1",
+		"@vitejs/plugin-react": "^4.3.4",
+		"electron": "^33.0.0",
+		"electron-builder": "^25.0.0",
+		"electron-vite": "^2.3.0",
 		"typescript": "^5.7.2",
+		"vite": "^5.4.0",
 		"vitest": "^4.1.4"
 	}
 }

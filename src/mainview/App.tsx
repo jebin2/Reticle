@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import Sidebar from "./components/Sidebar";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ToastProvider } from "./lib/useToast";
 import { type NavPage, type Asset } from "./lib/types";
-import Overview  from "./pages/Overview";
-import Assets    from "./pages/Assets";
-import Annotate  from "./pages/Annotate";
-import Train     from "./pages/Train";
-import Inference from "./pages/Inference";
-import Export    from "./pages/Export";
-import PushHub   from "./pages/PushHub";
+import Overview from "./pages/Overview";
 import { useStudioState } from "./lib/useStudioState";
+
+// Lazy-load non-initial pages so they don't bloat the startup bundle.
+const Assets    = lazy(() => import("./pages/Assets"));
+const Annotate  = lazy(() => import("./pages/Annotate"));
+const Train     = lazy(() => import("./pages/Train"));
+const Inference = lazy(() => import("./pages/Inference"));
+const Export    = lazy(() => import("./pages/Export"));
+const PushHub   = lazy(() => import("./pages/PushHub"));
 
 function Content() {
   const [activePage, setActivePage]   = useState<NavPage>("overview");
@@ -37,26 +39,28 @@ function Content() {
       <Sidebar activePage={activePage} onNavigate={navigate} />
       <main style={{ flex: 1, overflow: "hidden", display: "flex" }}>
         <ErrorBoundary key={activePage} page={activePage}>
-          {activePage === "overview"  && <Overview assets={assets} runs={runs} onNavigate={navigate} />}
-          {activePage === "assets"    && !activeAsset && (
-            <Assets
-              assets={assets}
-              runs={runs}
-              onAssetsChange={setAssets}
-              onOpenAsset={openAsset}
-            />
-          )}
-          {activePage === "assets"    && activeAsset && (
-            <Annotate
-              asset={activeAsset}
-              onAssetUpdate={handleAssetUpdate}
-              onBack={() => setActiveAsset(null)}
-            />
-          )}
-          {activePage === "train"     && <Train assets={assets} runs={runs} onRunsChange={setRuns} />}
-          {activePage === "inference" && <Inference runs={runs} />}
-          {activePage === "export"    && <Export runs={runs} />}
-          {activePage === "hub"       && <PushHub runs={runs} />}
+          <Suspense fallback={null}>
+            {activePage === "overview"  && <Overview assets={assets} runs={runs} onNavigate={navigate} />}
+            {activePage === "assets"    && !activeAsset && (
+              <Assets
+                assets={assets}
+                runs={runs}
+                onAssetsChange={setAssets}
+                onOpenAsset={openAsset}
+              />
+            )}
+            {activePage === "assets"    && activeAsset && (
+              <Annotate
+                asset={activeAsset}
+                onAssetUpdate={handleAssetUpdate}
+                onBack={() => setActiveAsset(null)}
+              />
+            )}
+            {activePage === "train"     && <Train assets={assets} runs={runs} onRunsChange={setRuns} />}
+            {activePage === "inference" && <Inference runs={runs} />}
+            {activePage === "export"    && <Export runs={runs} />}
+            {activePage === "hub"       && <PushHub runs={runs} />}
+          </Suspense>
         </ErrorBoundary>
       </main>
     </>

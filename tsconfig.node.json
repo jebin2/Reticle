@@ -1,0 +1,30 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"target": "ES2020",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"skipLibCheck": true,
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"allowImportingTsExtensions": true,
+		"isolatedModules": true,
+		"moduleDetection": "force",
+		"noEmit": true,
+		"lib": ["ES2020"],
+		"types": ["node"]
+	},
+	"include": [
+		"electron.vite.config.*",
+		"electron-builder.config.*",
+		"src/electron/**/*",
+		"src/bun/**/*",
+		"src/types/**/*"
+	],
+	"exclude": [
+		"node_modules",
+		"src/bun/cli.ts"
+	]
+}

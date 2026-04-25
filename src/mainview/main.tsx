@@ -2,25 +2,17 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
-import { initRPC } from "./lib/rpc";
+import { setupRPC, initRPC } from "./lib/rpc";
+
+// Wire up IPC proxy synchronously — all RPC calls work before the first render.
+setupRPC();
 
 const root = createRoot(document.getElementById("root")!);
-
-function renderApp() {
-  root.render(
-    <StrictMode>
-      <App />
-    </StrictMode>
-  );
-}
-
-const timeout = new Promise<never>((_, reject) =>
-  setTimeout(() => reject(new Error("RPC init timed out")), 5000)
+root.render(
+  <StrictMode>
+    <App />
+  </StrictMode>
 );
 
-Promise.race([initRPC(), timeout])
-  .then(renderApp)
-  .catch(err => {
-    console.error("RPC init failed:", err);
-    renderApp();
-  });
+// Fetch bridge config in the background (only needed for image URL generation).
+initRPC().catch(err => console.error("RPC bridge config failed:", err));
