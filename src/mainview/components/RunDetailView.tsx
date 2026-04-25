@@ -123,7 +123,7 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
         actions={<>
           {(run.status === "idle" || run.status === "done" || run.status === "failed") && (() => {
             const isSeg       = run.baseModel.endsWith("-seg");
-            const mismatch    = runMeta != null && (runMeta.currentHasPolygons !== isSeg);
+            const mismatch    = runMeta?.found === true && (runMeta.currentHasPolygons !== isSeg);
             const label       = run.status === "idle" ? "Start" : run.status === "done" ? "Start Again" : "Retry";
             return <>
               <HeaderBtn onClick={() => {
@@ -144,7 +144,7 @@ export default function RunDetailView({ run, progress, onClose, onUpdate, onStar
           {run.status === "paused" && (() => {
             // Resume mismatch is against the stored dataset, not current assets.
             const isSeg      = run.baseModel.endsWith("-seg");
-            const mismatch   = runMeta?.hasPolygons != null && (runMeta.hasPolygons !== isSeg);
+            const mismatch   = runMeta?.found === true && (runMeta.hasPolygons !== isSeg);
             return mismatch
               ? <span style={{ fontSize: 11, color: "#F59E0B", padding: "4px 10px", borderRadius: 5, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.08)", maxWidth: 260, lineHeight: 1.4 }}>
                   {runMeta!.hasPolygons ? "Dataset has polygons — start a fresh run with a seg model" : "Dataset is bbox-only — start a fresh run with a det model"}
